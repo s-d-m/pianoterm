@@ -2,6 +2,7 @@
 #include <string>
 
 #include "midi_reader.hh"
+#include "keyboard_events_extractor.hh"
 
 static void usage(std::ostream& out, const std::string& progname)
 {
@@ -28,5 +29,7 @@ int main(int argc, char** argv)
   }
 
   const auto midi_events = get_midi_events(arg);
+  const auto keyboard_events = get_key_events(midi_events);
+  
   return 0;
 }
