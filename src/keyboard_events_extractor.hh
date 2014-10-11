@@ -4,7 +4,7 @@
 #include <vector>
 #include "midi_reader.hh"
 
-struct key_event
+struct key_data
 {
     enum type : bool
     {
@@ -12,9 +12,14 @@ struct key_event
       released,
     };
 
-    uint64_t time; // the time the event occurs during the sond
     uint8_t  pitch; // the key that is pressed or released
     type     ev_type; // was the key pressed or released?
+};
+
+struct key_event
+{
+    uint64_t time; // the time the event occurs during the sond
+    key_data data;
 };
 
 // extracts the key_pressed / key_released from the midi events

@@ -3,6 +3,7 @@ TARGET := main
 SRC :=  main.cc \
 	midi_reader.cc \
 	keyboard_events_extractor.cc \
+	utils.cc \
 #	music_player.cc \
 
 

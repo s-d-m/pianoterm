@@ -28,14 +28,14 @@ void separate_release_pressed_events(std::vector<struct key_event>& key_events)
   // suboptimal implementation in the case the key_events are sorted
   for (auto& k : key_events)
   {
-    if (k.ev_type == key_event::type::pressed)
+    if (k.data.ev_type == key_data::type::pressed)
     {
       // find the associated key_release
-      const auto pitch = k.pitch;
+      const auto pitch = k.data.pitch;
       const auto earliest_time = k.time;
 
       auto release_ev = std::find_if(key_events.begin(), key_events.end(), [=] (const struct key_event& elt) {
-	  return (elt.time > earliest_time) and (elt.ev_type == key_event::type::released) and (elt.pitch == pitch);
+	  return (elt.time > earliest_time) and (elt.data.ev_type == key_data::type::released) and (elt.data.pitch == pitch);
 	});
 
       // sanity check: a pressed key must be followed by a release key with the same pitch
@@ -52,7 +52,7 @@ void separate_release_pressed_events(std::vector<struct key_event>& key_events)
       // successfully or only one half note being played.
       const auto release_time = release_ev->time;
       if (std::any_of(key_events.begin(), key_events.end(), [=] (const struct key_event& elt) {
-	    return (elt.time == release_time) and (elt.pitch == pitch) and (elt.ev_type == key_event::type::pressed);
+	    return (elt.time == release_time) and (elt.data.pitch == pitch) and (elt.data.ev_type == key_data::type::pressed);
 	  }))
       {
 	// need to advance the key release event
@@ -86,8 +86,8 @@ get_key_events(const std::vector<struct midi_event>& midi_events)
     if (is_key_down_event(ev))
     {
       const struct key_event k = { .time = ev.time,
-				   .pitch = ev.data[1],
-				   .ev_type = key_event::type::pressed };
+				   .data = { .pitch = ev.data[1],
+					     .ev_type = key_data::type::pressed } };
 
       res.push_back(std::move(k));
     }
@@ -95,8 +95,8 @@ get_key_events(const std::vector<struct midi_event>& midi_events)
     if (is_key_release_event(ev))
     {
       const struct key_event k = { .time = ev.time,
-				   .pitch = ev.data[1],
-				   .ev_type = key_event::type::released };
+				   .data = { .pitch = ev.data[1],
+					     .ev_type = key_data::type::released } };
 
       res.push_back(std::move(k));
     }
