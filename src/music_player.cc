@@ -1,0 +1,350 @@
+#include <termbox.h>
+#include <RtMidi.h>
+#include <time.h> // for nanosleep
+#include <stdexcept>
+
+#include "music_player.hh"
+#include "keyboard_events_extractor.hh"
+
+static
+void draw_piano_key(int x, int y, int width, int height,  uint16_t color)
+{
+  for (int i = x; i < x + width; ++i)
+  {
+    for (int j = y; j < y + height; ++j)
+    {
+      tb_change_cell(i, j, 0x2588, color, TB_DEFAULT);
+    }
+  }
+}
+
+static void draw_separating_line(int x, int y, int height, uint16_t bg_color)
+{
+  for (int j = y; j < y + height; ++j)
+  {
+    tb_change_cell(x, j, 0x2502, TB_BLACK, bg_color);
+  }
+}
+
+struct octave_color
+{
+    octave_color()
+      : do_color (TB_WHITE)
+      , re_color (TB_WHITE)
+      , mi_color (TB_WHITE)
+      , fa_color (TB_WHITE)
+      , sol_color (TB_WHITE)
+      , la_color (TB_WHITE)
+      , si_color (TB_WHITE)
+
+      , do_diese_color (TB_BLACK)
+      , re_diese_color (TB_BLACK)
+      , fa_diese_color (TB_BLACK)
+      , sol_diese_color (TB_BLACK)
+      , la_diese_color (TB_BLACK)
+    {
+    }
+
+    uint8_t do_color;
+    uint8_t re_color;
+    uint8_t mi_color;
+    uint8_t fa_color;
+    uint8_t sol_color;
+    uint8_t la_color;
+    uint8_t si_color;
+
+    uint8_t do_diese_color;
+    uint8_t re_diese_color;
+    uint8_t fa_diese_color;
+    uint8_t sol_diese_color;
+    uint8_t la_diese_color;
+};
+
+struct keys_color
+{
+    keys_color()
+      : la_0_color (TB_WHITE)
+      , si_0_color (TB_WHITE)
+      , la_diese_0_color (TB_BLACK)
+      ,	octaves ()
+      , do_8_color (TB_WHITE)
+    {
+    }
+
+    uint8_t la_0_color;
+    uint8_t si_0_color;
+    uint8_t la_diese_0_color;
+    struct octave_color octaves[7];
+    uint8_t do_8_color;
+};
+
+static
+void draw_octave(int x, int y, const struct octave_color& notes_color)
+{
+  draw_piano_key(x,     y, 3, 8, notes_color.do_color);  // do
+  draw_piano_key(x + 3, y, 4, 8, notes_color.re_color);  // re
+  draw_piano_key(x + 7, y, 3, 8, notes_color.mi_color);  // mi
+
+  draw_piano_key(x + 10, y, 4, 8, notes_color.fa_color); // fa
+  draw_piano_key(x + 14, y, 4, 8, notes_color.sol_color); // sol
+  draw_piano_key(x + 18, y, 3, 8, notes_color.la_color); // la
+  draw_piano_key(x + 21, y, 4, 8, notes_color.si_color); // si
+
+  draw_piano_key(x + 2, y, 2, 5, notes_color.do_diese_color);  // do#
+  draw_piano_key(x + 6, y, 2, 5, notes_color.re_diese_color);  // re#
+
+  draw_separating_line(x + 3, y + 5, 3, notes_color.do_color); // between do and re
+  draw_separating_line(x + 6, y + 5, 3, notes_color.re_color); // between re and mi
+
+  draw_piano_key(x + 13, y, 2, 5, notes_color.fa_diese_color); // fa#
+  draw_piano_key(x + 17, y, 2, 5, notes_color.sol_diese_color); // sol#
+  draw_piano_key(x + 21, y, 2, 5, notes_color.la_diese_color); // la#
+
+  draw_separating_line(x + 14, y + 5, 3, notes_color.fa_color); // between fa and sol
+  draw_separating_line(x + 18, y + 5, 3, notes_color.sol_color); // between sol and la
+  draw_separating_line(x + 21, y + 5, 3, notes_color.la_color); // between la and si
+
+  draw_separating_line(x + 10, y, 8, notes_color.mi_color); // between mi and fa
+
+}
+
+static void draw_keyboard(const struct keys_color& keyboard, int pos_x, int pos_y)
+{
+  draw_piano_key(pos_x + 1, pos_y, 3, 8, keyboard.la_0_color); // la 0
+  draw_piano_key(pos_x + 4, pos_y, 4, 8, keyboard.si_0_color); // si 0
+  draw_piano_key(pos_x + 4, pos_y, 2, 5, keyboard.la_diese_0_color); // la# 0
+  draw_separating_line(pos_x + 4, pos_y + 5, 3, keyboard.la_0_color); // between la0 and si0
+
+  for (int i = 0; i < 7; ++i)
+  {
+    draw_octave(pos_x + 8 + (25 * i), pos_y, (keyboard.octaves[i]));
+  }
+
+  draw_piano_key(pos_x + 8 + (25 * 7), pos_y, 4, 8, keyboard.do_8_color); // do 8
+
+  for (int i = 0; i < 7; ++i)
+  {
+    draw_separating_line(pos_x + 8 + (25 * (i + 1)), pos_y, 8, keyboard.octaves[i].si_color); // between octaves
+  }
+  draw_separating_line(pos_x + 8 + (25 * 0), pos_y, 8, keyboard.si_0_color);
+}
+
+
+#define octave_color(X)						\
+  case note_kind::do_##X:					\
+  keyboard.octaves[(X - 1)].do_color = normal_key_color;	\
+  break;							\
+  case note_kind::do_diese##X:					\
+  keyboard.octaves[(X - 1)].do_diese_color = diese_key_color;	\
+  break;							\
+  case note_kind::re_##X:					\
+  keyboard.octaves[(X - 1)].re_color = normal_key_color;	\
+  break;							\
+  case note_kind::re_diese_##X:					\
+  keyboard.octaves[(X - 1)].re_diese_color = diese_key_color;	\
+  break;							\
+  case note_kind::mi_##X:					\
+  keyboard.octaves[(X - 1)].mi_color = normal_key_color;	\
+  break;							\
+  case note_kind::fa_##X:					\
+  keyboard.octaves[(X - 1)].fa_color = normal_key_color;	\
+  break;							\
+  case note_kind::fa_diese_##X:					\
+  keyboard.octaves[(X - 1)].fa_diese_color = diese_key_color;	\
+  break;							\
+  case note_kind::sol_##X:					\
+  keyboard.octaves[(X - 1)].sol_color = normal_key_color;	\
+  break;							\
+  case note_kind::sol_diese_##X:				\
+  keyboard.octaves[(X - 1)].sol_diese_color = diese_key_color;	\
+  break;							\
+  case note_kind::la_##X:					\
+  keyboard.octaves[(X - 1)].la_color = normal_key_color;	\
+  break;							\
+  case note_kind::la_diese_##X:					\
+  keyboard.octaves[(X - 1)].la_diese_color = diese_key_color;	\
+  break;							\
+  case note_kind::si_##X:					\
+  keyboard.octaves[(X - 1)].si_color = normal_key_color;	\
+  break								\
+
+
+#if defined(__clang__)
+  // clang will complain in a switch that the default case is useless
+  // because all possible values in the enum are already taken into
+  // account.  however, since the value can come from an unrestricted
+  // uint8_t, the default is actually a necessary safe-guard.
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wcovered-switch-default"
+#endif
+
+static void set_color(struct keys_color& keyboard, enum note_kind note, uint8_t normal_key_color, uint8_t diese_key_color)
+{
+  switch (note)
+  {
+    case note_kind::la_0:
+      keyboard.la_0_color = normal_key_color;
+      break;
+
+    case note_kind::la_diese_0:
+      keyboard.la_diese_0_color = diese_key_color;
+      break;
+
+    case note_kind::si_0:
+      keyboard.si_0_color = normal_key_color;
+      break;
+
+      octave_color(1);
+      octave_color(2);
+      octave_color(3);
+      octave_color(4);
+      octave_color(5);
+      octave_color(6);
+      octave_color(7);
+
+    case note_kind::do_8:
+      keyboard.do_8_color = normal_key_color;
+      break;
+
+    default:
+      std::cerr << "Warning key " << static_cast<long unsigned int>(note)
+		<< " is not representable in a 88 key piano" << std::endl;
+      break;
+  }
+}
+#if defined(__clang__)
+  #pragma clang diagnostic pop
+#endif
+
+#undef octave_color
+
+static void set_color(struct keys_color& keyboard, enum note_kind note)
+{
+  set_color(keyboard, note, TB_BLUE, TB_CYAN);
+}
+
+static void reset_color(struct keys_color& keyboard, enum note_kind note)
+{
+  set_color(keyboard, note, TB_WHITE, TB_BLACK);
+}
+
+
+
+static
+void init_sound(RtMidiOut& player)
+{
+
+  player.openPort(1); // FIXME, find the right port to play through
+
+  if (!player.isPortOpen())
+  {
+    throw std::runtime_error("Error while initialising the sound system: couldn't open output sound port");
+  }
+}
+
+static
+void init_termbox()
+{
+  /* initialize the window */
+  switch (tb_init())
+  {
+    case TB_EUNSUPPORTED_TERMINAL:
+      throw std::runtime_error("Failed to initialize the `termbox` module (the plain console UI) because the terminal is not supported");
+
+    case TB_EFAILED_TO_OPEN_TTY:
+      throw std::runtime_error("Failed to initialize the `termbox` module (the plain console UI) (couldn't open TTY)");
+
+    case TB_EPIPE_TRAP_ERROR:
+      throw std::runtime_error("Failed to initialize the `termbox` module (the plain console UI) (pipe trap error)");
+
+    default:
+      /* no errors, keep going. */
+      break;
+  }
+}
+
+
+void play(const std::vector<struct music_event>& music)
+{
+  RtMidiOut sound_player (RtMidi::LINUX_ALSA);
+
+  init_sound(sound_player);
+  SCOPE_EXIT_BY_REF(sound_player.closePort());
+
+  init_termbox();
+  SCOPE_EXIT(tb_shutdown());
+
+
+  struct keys_color keyboard;
+
+  /* to center the keyboard on the window */
+  const auto keyboard_height = 8;
+  const auto keyboard_width = 188;
+  const auto ref_x = (tb_width() - keyboard_width) / 2;
+  const auto ref_y = (tb_height() - keyboard_height ) / 2;
+
+  /* start playing the events */
+  const auto nb_events = music.size();
+  for (unsigned i = 0; i < nb_events; ++i)
+  {
+    const auto& current_event = music[i];
+
+    /* update the keyboard */
+    for (const auto& k_ev : current_event.key_events)
+    {
+      switch (k_ev.ev_type)
+      {
+	case key_data::type::pressed:
+    	  set_color(keyboard, static_cast<enum note_kind>(k_ev.pitch));
+	  break;
+
+	case key_data::type::released:
+    	  reset_color(keyboard, static_cast<enum note_kind>(k_ev.pitch));
+	  break;
+
+#if !defined(__clang__)
+// clang complains that all values are handled in the switch and issue
+// a warning for the default case
+// gcc complains about a missing default
+	default:
+	  break;
+#endif
+      }
+    }
+
+    /* draw keyboard */
+    tb_clear();
+    draw_keyboard(keyboard, ref_x, ref_y);
+    tb_present();
+
+    // play the music
+    for (const auto& message : current_event.midi_messages)
+    {
+      auto tmp = message; // can't use message directly since message
+			   // is const and sendMessage doesn't take a
+			   // const vector
+      sound_player.sendMessage(&tmp);
+
+      // could use the following to cast the const away: but since
+      // there is no guarantee that the libRtMidi doesn't modify the
+      // data ... (I know the I can read the code)
+      //
+      //sound_player.sendMessage(const_cast<midi_message*>(&message));
+    }
+
+    // sleep until next event
+    if (i != nb_events - 1)
+    {
+      const auto sleep_time = music[i + 1].time - current_event.time;
+
+      struct timespec t;
+      t.tv_sec = static_cast<decltype(t.tv_sec)>(sleep_time / 1000000000);
+      t.tv_nsec = static_cast<decltype(t.tv_nsec)>(sleep_time % 1000000000);
+      while ((nanosleep(&t, &t) == -1) and (errno == EINTR))
+      {
+      }
+    }
+  }
+
+
+}

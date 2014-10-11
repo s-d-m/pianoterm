@@ -21,12 +21,12 @@ group_events_by_time(const std::vector<struct midi_event>& midi_events,
     {
       struct music_event new_elt;
       new_elt.time = ev_time;
-      new_elt.midi_events.push_back(m.data);
+      new_elt.midi_messages.push_back(m.data);
       res.push_back(std::move(new_elt));
     }
     else
     {
-      elt->midi_events.push_back(m.data);
+      elt->midi_messages.push_back(m.data);
     }
   }
 
@@ -58,8 +58,7 @@ group_events_by_time(const std::vector<struct midi_event>& midi_events,
   // sanity check: all elts in res must hold at least one event
   for (const auto& elt : res)
   {
-    if ((elt.midi_events.size() == 0) and
-	(elt.key_events.size() == 0))
+    if (elt.midi_messages.empty() and elt.key_events.empty())
     {
       throw std::invalid_argument("Error: a music event does not contain any midi or key event");
     }
@@ -78,7 +77,7 @@ group_events_by_time(const std::vector<struct midi_event>& midi_events,
   uint64_t nb_events = 0;
   for (const auto& elt : res)
   {
-    nb_events += elt.midi_events.size() + elt.key_events.size();
+    nb_events += elt.midi_messages.size() + elt.key_events.size();
   }
 
   if (nb_events > nb_input_events)

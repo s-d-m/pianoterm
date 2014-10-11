@@ -4,14 +4,14 @@ SRC :=  main.cc \
 	midi_reader.cc \
 	keyboard_events_extractor.cc \
 	utils.cc \
-#	music_player.cc \
+	music_player.cc \
 
 
 OBJS := ${SRC:.cc=.o}
 
 CXX = clang++
 
-LIBS= # -ltermbox -lrtmidi
+LIBS= -ltermbox -lrtmidi
 
 ifeq ($(findstring clang,$(CXX)), clang)
   CXX_WARN_FLAGS ?= -Weverything \

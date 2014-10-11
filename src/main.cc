@@ -4,6 +4,7 @@
 #include "midi_reader.hh"
 #include "keyboard_events_extractor.hh"
 #include "utils.hh"
+#include "music_player.hh"
 
 static void usage(std::ostream& out, const std::string& progname)
 {
@@ -32,6 +33,8 @@ int main(int argc, char** argv)
   const auto midi_events = get_midi_events(arg);
   const auto keyboard_events = get_key_events(midi_events);
   const auto song = group_events_by_time(midi_events, keyboard_events);
+
+  play(song);
 
   return 0;
 }
