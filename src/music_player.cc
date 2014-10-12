@@ -263,34 +263,10 @@ void init_termbox()
   }
 }
 
-
-void play(const std::vector<struct music_event>& music)
+static void update_keyboard(struct keys_color& keyboard, const std::vector<key_data>& key_events)
 {
-  RtMidiOut sound_player (RtMidi::LINUX_ALSA);
-
-  init_sound(sound_player);
-  SCOPE_EXIT_BY_REF(sound_player.closePort());
-
-  init_termbox();
-  SCOPE_EXIT(tb_shutdown());
-
-
-  struct keys_color keyboard;
-
-  /* to center the keyboard on the window */
-  const auto keyboard_height = 8;
-  const auto keyboard_width = 188;
-  const auto ref_x = (tb_width() - keyboard_width) / 2;
-  const auto ref_y = (tb_height() - keyboard_height ) / 2;
-
-  /* start playing the events */
-  const auto nb_events = music.size();
-  for (unsigned i = 0; i < nb_events; ++i)
-  {
-    const auto& current_event = music[i];
-
-    /* update the keyboard */
-    for (const auto& k_ev : current_event.key_events)
+      /* update the keyboard */
+    for (const auto& k_ev : key_events)
     {
       switch (k_ev.ev_type)
       {
@@ -311,37 +287,92 @@ void play(const std::vector<struct music_event>& music)
 #endif
       }
     }
+}
+
+static void update_screen(const struct keys_color& keyboard, const int ref_x, const int ref_y)
+{
 
     /* draw keyboard */
     tb_clear();
     draw_keyboard(keyboard, ref_x, ref_y);
     tb_present();
 
-    // play the music
-    for (const auto& message : current_event.midi_messages)
-    {
-      auto tmp = message; // can't use message directly since message
-			   // is const and sendMessage doesn't take a
-			   // const vector
-      sound_player.sendMessage(&tmp);
+}
 
-      // could use the following to cast the const away: but since
-      // there is no guarantee that the libRtMidi doesn't modify the
-      // data ... (I know the I can read the code)
-      //
-      //sound_player.sendMessage(const_cast<midi_message*>(&message));
-    }
 
-    // sleep until next event
+static void play_music(RtMidiOut& sound_player, const std::vector<midi_message>& midi_messages)
+{
+  // play the music
+  for (const auto& message : midi_messages)
+  {
+    auto tmp = message; // can't use message directly since message is const and
+			// sendMessage doesn't take a const vector
+    sound_player.sendMessage(&tmp);
+
+    // could use the following to cast the const away: but since there is no
+    // guarantee that the libRtMidi doesn't modify the data ... (I know the I
+    // can read the code)
+    //
+    //sound_player.sendMessage(const_cast<midi_message*>(&message));
+  }
+}
+
+static
+void init_ref_pos(int& ref_x, int& ref_y, int width, int height)
+{
+  /* to center the keyboard on the window */
+  const auto keyboard_height = 8;
+  const auto keyboard_width = 188;
+  ref_x = (width - keyboard_width) / 2;
+  ref_y = (height - keyboard_height ) / 2;
+}
+
+void play(const std::vector<struct music_event>& music)
+{
+  RtMidiOut sound_player (RtMidi::LINUX_ALSA);
+
+  init_sound(sound_player);
+  SCOPE_EXIT_BY_REF(sound_player.closePort());
+
+  init_termbox();
+  SCOPE_EXIT(tb_shutdown());
+
+  struct keys_color keyboard;
+
+  int ref_x;
+  int ref_y;
+  init_ref_pos(ref_x, ref_y, tb_width(), tb_height());
+
+
+  /* start playing the events */
+  const auto nb_events = music.size();
+  for (unsigned i = 0; i < nb_events; ++i)
+  {
+    const auto& current_event = music[i];
+
+    update_keyboard(keyboard, current_event.key_events);
+    update_screen(keyboard, ref_x, ref_y);
+    play_music(sound_player, current_event.midi_messages);
+
     if (i != nb_events - 1)
     {
+      // sleep until next music event or a key (== space or q) is pressed
       const auto sleep_time = music[i + 1].time - current_event.time;
 
-      struct timespec t;
-      t.tv_sec = static_cast<decltype(t.tv_sec)>(sleep_time / 1000000000);
-      t.tv_nsec = static_cast<decltype(t.tv_nsec)>(sleep_time % 1000000000);
-      while ((nanosleep(&t, &t) == -1) and (errno == EINTR))
+      struct tb_event tmp;
+      const auto ret_val = tb_peek_event(&tmp, static_cast<int>(sleep_time / 1000000));
+      switch (ret_val)
       {
+	case TB_EVENT_KEY:
+
+	  break;
+
+	case TB_EVENT_RESIZE:
+	  init_ref_pos(ref_x, ref_y, tmp.w, tmp.h);
+	  break;
+
+	default:
+	  break;
       }
     }
   }
