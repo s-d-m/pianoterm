@@ -289,12 +289,27 @@ static void update_keyboard(struct keys_color& keyboard, const std::vector<key_d
     }
 }
 
+// following function was copy/pasted from the termbox computer keyboard example
+static void print_tb(const char *str, int x, int y, uint16_t fg, uint16_t bg)
+{
+  while (*str) {
+    uint32_t uni;
+    str += tb_utf8_char_to_unicode(&uni, str);
+    tb_change_cell(x, y, uni, fg, bg);
+    x++;
+  }
+}
+
 static void update_screen(const struct keys_color& keyboard, const int ref_x, const int ref_y)
 {
 
     /* draw keyboard */
     tb_clear();
     draw_keyboard(keyboard, ref_x, ref_y);
+
+    print_tb("press <CTRL + q> to quit", ref_x, ref_y + 10, TB_MAGENTA, TB_DEFAULT);
+    print_tb("press <space> to pause/unpause", ref_x, ref_y + 11, TB_MAGENTA, TB_DEFAULT);
+
     tb_present();
 
 }
