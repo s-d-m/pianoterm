@@ -1,27 +1,22 @@
 #include <stdexcept>
 #include <algorithm>
 #include "keyboard_events_extractor.hh"
-
-static bool is_key_down_event(const struct midi_event& ev)
-{
-  return (ev.data.size() == 3) and
-    ((ev.data[0] & 0xF0) == 0x90) and (ev.data[2] != 0x00);
-}
-
-
-static bool is_key_release_event(const struct midi_event& ev)
-{
-  return (ev.data.size() == 3) and
-    (((ev.data[0] & 0xF0) == 0x80) or
-     (((ev.data[0] & 0xF0) == 0x90) and (ev.data[2] == 0x00)));
-}
+#include "utils.hh"
 
 
 static
 void separate_release_pressed_events(std::vector<struct key_event>& key_events)
 {
+  // precond the events MUST be sorted by time. this function only works on that case
+  if (not std::is_sorted(key_events.begin(), key_events.end(), [] (const key_event& a, const key_event& b) {
+	return a.time < b.time;
+      }))
+  {
+    throw std::invalid_argument("Error, events are not sorted by play time");
+  }
+
   // for each pressed event, look if there is another pressed event that happens
-  // at the exact same as the associated release event if so, shorten the
+  // at the exact same time as its associated release event. If so, shorten the
   // duration of the former pressed event (i.e advance the time the release
   // event occurs).
 
@@ -30,41 +25,60 @@ void separate_release_pressed_events(std::vector<struct key_event>& key_events)
   {
     if (k.data.ev_type == key_data::type::pressed)
     {
-      // find the associated key_release
       const auto pitch = k.data.pitch;
       const auto earliest_time = k.time;
 
-      auto release_ev = std::find_if(key_events.begin(), key_events.end(), [=] (const struct key_event& elt) {
-	  return (elt.time > earliest_time) and (elt.data.ev_type == key_data::type::released) and (elt.data.pitch == pitch);
+      // is there a realease happening at the same time?
+      auto release_pos = std::find_if(key_events.begin(), key_events.end(), [=] (const key_event& elt) {
+	  return (elt.time == earliest_time) and (elt.data.ev_type == key_data::type::released) and (elt.data.pitch == pitch);
 	});
 
-      // sanity check: a pressed key must be followed by a release key with the same pitch
-      if (release_ev == key_events.end())
+      if (release_pos != key_events.end())
       {
-	throw std::invalid_argument("Error, a pressed key was never released");
-      }
 
-      // let's see if there is a key pressed with that pitch that is played
-      // at the exact same time as the key release event. This can happen
-      // when e.g. two quarter notes are following each others. We need to
-      // introduce a small time gap in between as otherwise the user can't
-      // _visually_ differentiate between the two quarter notes being played
-      // successfully or only one half note being played.
-      const auto release_time = release_ev->time;
-      if (std::any_of(key_events.begin(), key_events.end(), [=] (const struct key_event& elt) {
-	    return (elt.time == release_time) and (elt.data.pitch == pitch) and (elt.data.ev_type == key_data::type::pressed);
-	  }))
-      {
-	// need to advance the key release event
-	const auto duration = release_ev->time - earliest_time;
+	// there do is a release key happening at the same time.
+	// Let's find the pressed key responsible for it
+	const auto note_start_pos = std::find_if(key_events.rbegin(), key_events.rend(), [=] (const key_event& elt) {
+	  return (elt.time < earliest_time) and (elt.data.ev_type == key_data::type::pressed) and (elt.data.pitch == pitch);
+	});
+
+	// sanity check: a release event must be preceded by a pressed event.
+	if (note_start_pos == key_events.rend())
+	{
+	  throw std::invalid_argument("error, a there is release event comming from nowhere (failed to find the associated pressed event)");
+	}
+
+	// compute the shortening time
+	const auto duration = release_pos->time - note_start_pos->time;
 	const auto max_shortening_time = decltype(duration){75000000}; // nanoseconds
 
 	// shorten the duration by one fourth of its time, in the worst case
 	const auto shortening_time = std::min(max_shortening_time, duration / 4);
-	release_ev->time -= shortening_time;
+	release_pos->time -= shortening_time;
+
       }
     }
   }
+
+  // sanity check: a key release and a key pressed event with the same pitch
+  // can't appear at the same time any more
+  for (const auto& k : key_events)
+  {
+    if (k.data.ev_type == key_data::type::released)
+    {
+      const auto pitch = k.data.pitch;
+      const auto time = k.time;
+
+      if (std::any_of(key_events.begin(), key_events.end(), [=] (const struct key_event& a) {
+  	    return (a.data.ev_type == key_data::type::pressed) and (a.data.pitch == pitch) and (a.time == time);
+  	  }))
+      {
+  	throw std::invalid_argument("Error: a key is said to be pressed and released at the same time");
+      }
+    }
+  }
+
+
 }
 
 
@@ -117,7 +131,7 @@ get_key_events(const std::vector<struct midi_event>& midi_events)
   }
 
   separate_release_pressed_events(res);
-  // res is no more sorted not (because some release events got advanced)
+  // res is not sorted anymore (because some release events got advanced)
 
   return res;
 }

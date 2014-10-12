@@ -5,6 +5,7 @@
 #include <limits>
 #include "midi_reader.hh"
 #include "keyboard_events_extractor.hh"
+#include "midi_reader.hh"
 
 
 // the followins SCOP_EEXIT magic comes from
@@ -90,5 +91,11 @@ struct music_event
 std::vector<struct music_event>
 group_events_by_time(const std::vector<struct midi_event>& midi_events,
 		     const std::vector<struct key_event>& key_events);
+
+
+bool is_key_down_event(const struct midi_event& ev) __attribute__((pure));
+bool is_key_release_event(const struct midi_event& ev) __attribute__((pure));
+bool is_key_down_event(const std::vector<uint8_t>& data) __attribute__((pure));
+bool is_key_release_event(const std::vector<uint8_t>& data) __attribute__((pure));
 
 #endif /* UTILS_HH_ */

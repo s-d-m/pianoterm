@@ -2,6 +2,66 @@
 #include <stdexcept>
 #include "utils.hh"
 
+bool is_key_down_event(const std::vector<uint8_t>& data)
+{
+  return (data.size() == 3) and
+         ((data[0] & 0xF0) == 0x90) and (data[2] != 0x00);
+}
+
+bool is_key_down_event(const struct midi_event& ev)
+{
+  return is_key_down_event(ev.data);
+}
+
+bool is_key_release_event(const std::vector<uint8_t>& data)
+{
+  return (data.size() == 3) and
+    (((data[0] & 0xF0) == 0x80) or
+     (((data[0] & 0xF0) == 0x90) and (data[2] == 0x00)));
+}
+
+bool is_key_release_event(const struct midi_event& ev)
+{
+  return is_key_release_event(ev.data);
+}
+
+// in case there is a release pitch and a play pitch at the same time
+// in the midi part, make sure the release happens *before* the play.
+// the release must be from a previous play as otherwise it would mean
+// that the a key is pressed and immediately released, so not played
+// at all (which is wrong)
+static
+void fix_midi_order(std::vector<struct music_event>& music)
+{
+  for (auto& music_event : music)
+  {
+    auto& messages = music_event.midi_messages;
+
+    const auto messages_begin = messages.end();
+    const auto messages_end = messages.end();
+
+    for (auto it = messages_begin; it != messages_end; ++it)
+    {
+      auto& midi_ev = *it;
+      if (is_key_release_event(midi_ev))
+      {
+	const auto pitch = midi_ev[1];
+	auto down_pos = std::find_if(std::next(it), messages_end, [=] (const midi_message& elt) {
+	    return is_key_down_event(elt) and (elt[1] == pitch);
+	  });
+
+	// no need to check if down pos == end, since distance from
+	// begin to end is bigger than distance from begin to it
+	if (std::distance(messages_begin, down_pos) < std::distance(messages_begin, it))
+	{
+	  std::swap(*it, *down_pos);
+	}
+
+      }
+    }
+  }
+}
+
 // a song is just a succession of music_event to be played
 std::vector<struct music_event>
 group_events_by_time(const std::vector<struct midi_event>& midi_events,
@@ -100,6 +160,29 @@ group_events_by_time(const std::vector<struct midi_event>& midi_events,
     }
   }
 
+  // sanity check: there must be as many release events as pressed events
+  uint64_t nb_released = 0;
+  uint64_t nb_pressed = 0;
+  for (const auto& elt : res)
+  {
+    for (const auto& k : elt.key_events)
+    {
+      if (k.ev_type == key_data::type::released)
+      {
+	nb_released++;
+      }
+      if (k.ev_type == key_data::type::pressed)
+      {
+	nb_pressed++;
+      }
+    }
+  }
+
+  if (nb_pressed != nb_released)
+  {
+    throw std::invalid_argument("Error: mismatch between key pressed and key release");
+  }
+
   // sanity check: a key release and a key pressed event with the same pitch
   // can't appear at the same time
   for (const auto& elt : res)
@@ -108,16 +191,18 @@ group_events_by_time(const std::vector<struct midi_event>& midi_events,
     {
       if (k.ev_type == key_data::type::released)
       {
-	const auto pitch = k.pitch;
-	if (std::any_of(elt.key_events.begin(), elt.key_events.end(), [=] (const struct key_data& a) {
-	      return (a.ev_type == key_data::type::pressed) and (a.pitch == pitch);
-	    }))
-	{
-	  throw std::invalid_argument("Error: a key press happens at the same time as a key release");
-	}
+  	const auto pitch = k.pitch;
+  	if (std::any_of(elt.key_events.begin(), elt.key_events.end(), [=] (const struct key_data& a) {
+  	      return (a.ev_type == key_data::type::pressed) and (a.pitch == pitch);
+  	    }))
+  	{
+  	  throw std::invalid_argument("Error: a key press happens at the same time as a key release");
+  	}
       }
     }
   }
+
+  fix_midi_order(res);
 
   return res;
 }
