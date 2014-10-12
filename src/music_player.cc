@@ -356,17 +356,41 @@ void play(const std::vector<struct music_event>& music)
 
     if (i != nb_events - 1)
     {
-      // sleep until next music event or a key (== space or q) is pressed
+      // sleep until next music event or a key (== space or ctrl+q) is pressed
       const auto sleep_time = music[i + 1].time - current_event.time;
 
       struct tb_event tmp;
-      const auto ret_val = tb_peek_event(&tmp, static_cast<int>(sleep_time / 1000000));
+      auto ret_val = tb_peek_event(&tmp, static_cast<int>(sleep_time / 1000000));
       switch (ret_val)
       {
 	case TB_EVENT_KEY:
-	  if (tmp.key == TB_KEY_CTRL_Q)
+	  switch (tmp.key)
 	  {
-	    return;
+	    case TB_KEY_CTRL_Q:
+	      return; // ctrl + q means quit
+
+	    case TB_KEY_SPACE:
+	      // pause, wait for a second space being pressed (to unpause) or a ctrl+q to quit
+	    {
+	      for (;;)
+	      {
+		if (tb_poll_event(&tmp) == TB_EVENT_KEY)
+		{
+		  if (tmp.key == TB_KEY_SPACE)
+		  {
+		    break;
+		  }
+
+		  if (tmp.key == TB_KEY_CTRL_Q)
+		  {
+		    return;
+		  }
+		}
+
+	      }
+	    }
+	    default:
+	      break;
 	  }
 	  break;
 
