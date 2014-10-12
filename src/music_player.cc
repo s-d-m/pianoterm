@@ -364,7 +364,10 @@ void play(const std::vector<struct music_event>& music)
       switch (ret_val)
       {
 	case TB_EVENT_KEY:
-
+	  if (tmp.key == TB_KEY_CTRL_Q)
+	  {
+	    return;
+	  }
 	  break;
 
 	case TB_EVENT_RESIZE:
