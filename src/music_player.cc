@@ -1,7 +1,9 @@
 #include <termbox.h>
 #include <RtMidi.h>
-#include <time.h> // for nanosleep
 #include <stdexcept>
+extern "C" {
+#include <sys/time.h> // for gettimofday
+}
 
 #include "music_player.hh"
 #include "keyboard_events_extractor.hh"
@@ -372,50 +374,62 @@ void play(const std::vector<struct music_event>& music)
     if (i != nb_events - 1)
     {
       // sleep until next music event or a key (== space or ctrl+q) is pressed
-      const auto sleep_time = music[i + 1].time - current_event.time;
+      const decltype(music[0].time) time_to_wait = (music[i + 1].time - current_event.time) / 1000; // sleep time is in micro second
+      decltype(music[0].time) waited_time = 0;
 
-      struct tb_event tmp;
-      auto ret_val = tb_peek_event(&tmp, static_cast<int>(sleep_time / 1000000));
-      switch (ret_val)
+      struct timeval timeval;
+      gettimeofday(&timeval, nullptr);
+      const auto started_time = static_cast<uint64_t>(timeval.tv_sec * 1000000 + timeval.tv_usec);
+
+      do
       {
-	case TB_EVENT_KEY:
-	  switch (tmp.key)
-	  {
-	    case TB_KEY_CTRL_Q:
-	      return; // ctrl + q means quit
-
-	    case TB_KEY_SPACE:
-	      // pause, wait for a second space being pressed (to unpause) or a ctrl+q to quit
+	struct tb_event tmp;
+	auto ret_val = tb_peek_event(&tmp, static_cast<int>((time_to_wait - waited_time) / 1000)); // tb_peek_event has a timeout set in milliseconds
+	switch (ret_val)
+	{
+	  case TB_EVENT_KEY:
+	    switch (tmp.key)
 	    {
-	      for (;;)
+	      case TB_KEY_CTRL_Q:
+		return; // ctrl + q means quit
+
+	      case TB_KEY_SPACE:
+		// pause, wait for a second space being pressed (to unpause) or a ctrl+q to quit
 	      {
-		if (tb_poll_event(&tmp) == TB_EVENT_KEY)
+		for (;;)
 		{
-		  if (tmp.key == TB_KEY_SPACE)
+		  if (tb_poll_event(&tmp) == TB_EVENT_KEY)
 		  {
-		    break;
+		    if (tmp.key == TB_KEY_SPACE)
+		    {
+		      break;
+		    }
+
+		    if (tmp.key == TB_KEY_CTRL_Q)
+		    {
+		      return;
+		    }
 		  }
 
-		  if (tmp.key == TB_KEY_CTRL_Q)
-		  {
-		    return;
-		  }
 		}
-
 	      }
+	      default:
+		break;
 	    }
-	    default:
-	      break;
-	  }
-	  break;
+	    break;
 
-	case TB_EVENT_RESIZE:
-	  init_ref_pos(ref_x, ref_y, tmp.w, tmp.h);
-	  break;
+	  case TB_EVENT_RESIZE:
+	    init_ref_pos(ref_x, ref_y, tmp.w, tmp.h);
+	    break;
 
-	default:
-	  break;
-      }
+	  default:
+	    break;
+	}
+
+	gettimeofday(&timeval, nullptr);
+	const auto time_now = static_cast<uint64_t>(timeval.tv_sec * 1000000 + timeval.tv_usec);
+	waited_time = time_now - started_time;
+      } while (waited_time < time_to_wait);
     }
   }
 
