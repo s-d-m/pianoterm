@@ -1,6 +1,7 @@
 #include <RtMidi.h>
 #include <algorithm>
 #include <stdexcept>
+#include <string>
 #include "utils.hh"
 
 bool is_key_down_event(const std::vector<uint8_t>& data)
@@ -229,15 +230,52 @@ void list_output_midi_ports(std::ostream& out)
 
 }
 
+static unsigned int get_nb_output_ports()
+{
+  RtMidiOut player;
+  return player.getPortCount();
+}
 
 unsigned int get_default_output_port()
 {
-  RtMidiOut player;
-  return player.getPortCount() / 2;
+  const auto nb_outputs = get_nb_output_ports();
+
+  if (nb_outputs == 0)
+  {
+    std::cerr << "Sorry: no midi output found\n";
+  }
+
+  return nb_outputs / 2;
 }
 
 
-unsigned int get_output_port(const std::string& s __attribute__((unused)))
+unsigned int get_output_port(const std::string& s)
 {
-  return get_default_output_port();
+  const auto nb_outputs = get_nb_output_ports();
+
+  try
+  {
+    const auto res = std::stoi(s);
+    if ((res < 0) or (static_cast<unsigned int>(res) >= nb_outputs))
+    {
+      std::cerr << "Warning: invalid port, falling back to default one\n";
+      return get_default_output_port();
+    }
+    return static_cast<unsigned int>(res);
+  }
+  catch (std::invalid_argument&)
+  {
+    // argument is not a number, let's see if it matches the name of one of the output
+    for (auto i = decltype(nb_outputs){0}; i < nb_outputs; ++i)
+    {
+      RtMidiOut player;
+      if (s == player.getPortName(i))
+      {
+	return i;
+      }
+    }
+
+    std::cerr << "Warning: invalid port, falling back to the default one.\n";
+    return get_default_output_port();
+  }
 }
