@@ -100,5 +100,7 @@ bool is_key_down_event(const std::vector<uint8_t>& data) __attribute__((pure));
 bool is_key_release_event(const std::vector<uint8_t>& data) __attribute__((pure));
 
 void list_output_midi_ports(std::ostream& out);
+unsigned int get_default_output_port();
+unsigned int get_output_port(const std::string& s);
 
 #endif /* UTILS_HH_ */

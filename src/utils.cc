@@ -228,3 +228,16 @@ void list_output_midi_ports(std::ostream& out)
   }
 
 }
+
+
+unsigned int get_default_output_port()
+{
+  RtMidiOut player;
+  return player.getPortCount() / 2;
+}
+
+
+unsigned int get_output_port(const std::string& s __attribute__((unused)))
+{
+  return get_default_output_port();
+}

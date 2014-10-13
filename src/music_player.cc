@@ -233,10 +233,10 @@ static void reset_color(struct keys_color& keyboard, enum note_kind note)
 
 
 static
-void init_sound(RtMidiOut& player)
+void init_sound(RtMidiOut& player, unsigned int midi_output_port)
 {
 
-  player.openPort(1); // FIXME, find the right port to play through
+  player.openPort(midi_output_port);
 
   if (!player.isPortOpen())
   {
@@ -344,11 +344,11 @@ void init_ref_pos(int& ref_x, int& ref_y, int width, int height)
   ref_y = (height - keyboard_height ) / 2;
 }
 
-void play(const std::vector<struct music_event>& music)
+void play(const std::vector<struct music_event>& music, unsigned int midi_output_port)
 {
   RtMidiOut sound_player (RtMidi::LINUX_ALSA);
 
-  init_sound(sound_player);
+  init_sound(sound_player, midi_output_port);
   SCOPE_EXIT_BY_REF(sound_player.closePort());
 
   init_termbox();
