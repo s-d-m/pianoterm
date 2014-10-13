@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <limits>
+#include <fstream>
 #include "midi_reader.hh"
 #include "keyboard_events_extractor.hh"
 #include "midi_reader.hh"
@@ -97,5 +98,7 @@ bool is_key_down_event(const struct midi_event& ev) __attribute__((pure));
 bool is_key_release_event(const struct midi_event& ev) __attribute__((pure));
 bool is_key_down_event(const std::vector<uint8_t>& data) __attribute__((pure));
 bool is_key_release_event(const std::vector<uint8_t>& data) __attribute__((pure));
+
+void list_output_midi_ports(std::ostream& out);
 
 #endif /* UTILS_HH_ */

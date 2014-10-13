@@ -11,7 +11,8 @@ static void usage(std::ostream& out, const std::string& progname)
   out << "Usage: " << progname << " <Option|File>\n"
       << "\n"
       << "Options:\n"
-      << "  -h, --help		print this help\n";
+      << "  -h, --help		print this help\n"
+      << "  -l, --list		list the midi output ports\n";
 }
 
 int main(int argc, char** argv)
@@ -30,11 +31,23 @@ int main(int argc, char** argv)
     return 0;
   }
 
-  const auto midi_events = get_midi_events(arg);
-  const auto keyboard_events = get_key_events(midi_events);
-  const auto song = group_events_by_time(midi_events, keyboard_events);
+  if ((arg == "--list") or (arg == "-l"))
+  {
+    list_output_midi_ports(std::cout);
+    return 0;
+  }
 
-  play(song);
+  try
+  {
+    const auto midi_events = get_midi_events(arg);
+    const auto keyboard_events = get_key_events(midi_events);
+    const auto song = group_events_by_time(midi_events, keyboard_events);
 
-  return 0;
+    play(song);
+  }
+  catch (std::exception& e)
+  {
+    std::cerr << e.what();
+    return 2;
+  }
 }

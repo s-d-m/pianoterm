@@ -1,3 +1,4 @@
+#include <RtMidi.h>
 #include <algorithm>
 #include <stdexcept>
 #include "utils.hh"
@@ -205,4 +206,25 @@ group_events_by_time(const std::vector<struct midi_event>& midi_events,
   fix_midi_order(res);
 
   return res;
+}
+
+
+void list_output_midi_ports(std::ostream& out)
+{
+  RtMidiOut player;
+
+  const auto nb_outputs = player.getPortCount();
+  if (nb_outputs == 0)
+  {
+    out << "Sorry: no midi output found\n";
+  }
+  else
+  {
+    out << nb_outputs << " outputs found:\n";
+    for (auto i = decltype(nb_outputs){0}; i < nb_outputs; ++i)
+    {
+      out << "  " << i << " -> " << player.getPortName(i) << "\n";
+    }
+  }
+
 }
