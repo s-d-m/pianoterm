@@ -221,7 +221,15 @@ void list_output_midi_ports(std::ostream& out)
   }
   else
   {
-    out << nb_outputs << " outputs found:\n";
+    if (nb_outputs == 1)
+    {
+      out << "1 output found:\n";
+    }
+    else
+    {
+      out << nb_outputs << " outputs found:\n";
+    }
+
     for (auto i = decltype(nb_outputs){0}; i < nb_outputs; ++i)
     {
       out << "  " << i << " -> " << player.getPortName(i) << "\n";
