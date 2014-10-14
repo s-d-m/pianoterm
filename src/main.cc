@@ -44,7 +44,7 @@ struct options get_opts(int argc, char** argv)
       continue;
     }
 
-    if ((arg == "-p") or (arg == "-port"))
+    if ((arg == "-p") or (arg == "--port"))
     {
       if (i == argc - 1)
       {
