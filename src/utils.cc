@@ -39,7 +39,7 @@ void fix_midi_order(std::vector<struct music_event>& music)
   {
     auto& messages = music_event.midi_messages;
 
-    const auto messages_begin = messages.end();
+    const auto messages_begin = messages.begin();
     const auto messages_end = messages.end();
 
     for (auto it = messages_begin; it != messages_end; ++it)
