@@ -232,11 +232,12 @@ static void reset_color(struct keys_color& keyboard, enum note_kind note)
 
 
 
+template <typename T>
 static
-void init_sound(RtMidiOut& player, unsigned int midi_output_port)
+void init_sound(T& player, unsigned int midi_port)
 {
 
-  player.openPort(midi_output_port);
+  player.openPort(midi_port);
 
   if (!player.isPortOpen())
   {
@@ -291,6 +292,7 @@ static void update_keyboard(struct keys_color& keyboard, const std::vector<key_d
     }
 }
 
+
 // following function was copy/pasted from the termbox computer keyboard example
 static void print_tb(const char *str, int x, int y, uint16_t fg, uint16_t bg)
 {
@@ -344,6 +346,12 @@ void init_ref_pos(int& ref_x, int& ref_y, int width, int height)
   ref_y = (height - keyboard_height ) / 2;
 }
 
+static
+void init_ref_pos(int& ref_x, int& ref_y)
+{
+  init_ref_pos(ref_x, ref_y, tb_width(), tb_height());
+}
+
 void play(const std::vector<struct music_event>& music, unsigned int midi_output_port)
 {
   RtMidiOut sound_player (RtMidi::LINUX_ALSA);
@@ -358,7 +366,7 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
 
   int ref_x;
   int ref_y;
-  init_ref_pos(ref_x, ref_y, tb_width(), tb_height());
+  init_ref_pos(ref_x, ref_y);
 
 
   /* start playing the events */
@@ -412,6 +420,7 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
 		  }
 
 		}
+		break;
 	      }
 	      default:
 		break;
@@ -432,6 +441,91 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
       } while (waited_time < time_to_wait);
     }
   }
+}
 
 
+
+struct callback_data_t
+{
+    struct keys_color& keyboard;
+    RtMidiOut& sound_player;
+    int& ref_x;
+    int& ref_y;
+};
+
+static
+void callback_fn(double timestamp __attribute__((unused)), std::vector<unsigned char> *message, void* param) {
+  if (message == nullptr)
+  {
+    throw std::invalid_argument("Error, invalid input message");
+  }
+
+  if (param == nullptr)
+  {
+    throw std::invalid_argument("Error, argument for input listener");
+  }
+
+  auto priv_data = static_cast<struct callback_data_t*>(param);
+
+  std::vector<midi_message> tmp;
+  tmp.push_back(*message);
+
+  play_music(priv_data->sound_player, tmp);
+
+  const auto key_events = midi_to_key_events(*message);
+  update_keyboard(priv_data->keyboard, key_events);
+  update_screen(priv_data->keyboard, priv_data->ref_x, priv_data->ref_y);
+}
+
+void play(unsigned int midi_input_port, unsigned int midi_output_port)
+{
+  RtMidiIn sound_listener (RtMidi::LINUX_ALSA);
+  init_sound(sound_listener, midi_input_port);
+  SCOPE_EXIT_BY_REF(sound_listener.closePort());
+
+  RtMidiOut sound_player (RtMidi::LINUX_ALSA);
+  init_sound(sound_player, midi_output_port);
+  SCOPE_EXIT_BY_REF(sound_player.closePort());
+
+  init_termbox();
+  SCOPE_EXIT(tb_shutdown());
+
+
+  struct keys_color keyboard;
+
+  int ref_x;
+  int ref_y;
+  init_ref_pos(ref_x, ref_y);
+  update_screen(keyboard, ref_x, ref_y);
+
+
+  struct callback_data_t callback_data =  { .keyboard = keyboard,
+					    .sound_player = sound_player,
+					    .ref_x = ref_y,
+					    .ref_y = ref_y };
+
+
+  sound_listener.setCallback(callback_fn, &callback_data);
+
+  for (;;)
+  {
+    struct tb_event ev;
+    const auto ret_val = tb_poll_event(&ev);
+
+    switch (ret_val)
+    {
+      case TB_EVENT_RESIZE:
+	init_ref_pos(ref_x, ref_y, ev.w, ev.h);
+	update_screen(keyboard, ref_x, ref_y);
+	break;
+      case TB_EVENT_KEY:
+	if (ev.key == TB_KEY_CTRL_Q)
+	{
+	  return; // ctrl + q means quit
+	}
+	break;
+      default:
+	break;
+    }
+  }
 }

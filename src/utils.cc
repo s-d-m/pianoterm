@@ -27,6 +27,124 @@ bool is_key_release_event(const struct midi_event& ev)
   return is_key_release_event(ev.data);
 }
 
+
+static
+unsigned int get_variable_data_length(const std::vector<uint8_t>& message_stream, unsigned int start_pos)
+{
+  unsigned int array_size = 0;
+  unsigned int nb_read = 0;
+  const auto max_res = message_stream.size() - start_pos;
+  const auto end = message_stream.end();
+  const auto begin = message_stream.begin();
+
+  for (auto it = std::next(begin, static_cast<int>(start_pos)); it != end; ++it)
+  {
+    nb_read++;
+    array_size = (array_size << 7) + ((*it) & 0x7F);
+    if (((*it) & 0x80) == 0)
+    {
+      return std::min(max_res, array_size + nb_read);
+    }
+  }
+
+  // at this point input is invalid
+  return max_res;
+}
+
+static unsigned int get_next_event_size(const std::vector<uint8_t>& message_stream, unsigned int start_pos)
+{
+  const auto stream_size = message_stream.size() - start_pos;
+  const auto stream = std::next(message_stream.begin(), static_cast<int>(start_pos));
+
+  if (stream_size < 2)
+  {
+    // minimal possible length (midi channel event 0xC0 and 0xD0
+    return stream_size;
+  }
+
+  unsigned int res = 1; // the first byte which the event type (channel, meta, sysex)
+  const auto ev_type = stream[0];
+  if (ev_type == 0xFF)
+  {
+    // META event has one byte more than sysex
+    res += 1;
+  }
+
+  if ((ev_type == 0xFF) or (ev_type == 0xF0) or (ev_type == 0xF7))
+  {
+    // end of META or sysex
+    res += get_variable_data_length(message_stream, res + start_pos);
+
+    // sanity check: in case of wrong input, simply discard data
+    return std::min(res, stream_size);
+  }
+
+  if (((ev_type & 0xF0) >= 0x80) and (ev_type & 0xF0) != 0xF0)
+  {
+    if (((ev_type & 0xF0) == 0xC0)     /* Program Change Event */
+	or ((ev_type & 0xF0) == 0xD0)) /* or Channel Aftertouch Event */
+    {
+      // one more byte
+      res += 1;
+    }
+    else
+    {
+      // this is a MIDI channel event (more two bytes)
+      res += 2;
+    }
+    return std::min(res, stream_size);
+  }
+
+  // at this point there is an error, discard data
+  return stream_size;
+}
+
+std::vector<struct key_data>
+midi_to_key_events(const std::vector<uint8_t>& message_stream)
+{
+  std::vector<struct key_data> res;
+
+  const auto size = message_stream.size();
+  auto nb_read = decltype(size){0};
+  const auto stream_begin = message_stream.begin();
+
+  while (nb_read < size)
+  {
+    const auto this_event_size = get_next_event_size(message_stream, nb_read);
+
+    if (this_event_size == 0)
+    {
+      // this is an error. return what we have found so far to avoid
+      // an infinite loop. This can happen with variable length array.
+      // If the computation of the size overflow and falls to 0, then
+      // ...
+      return res;
+    }
+
+    if (this_event_size == 3) // can it be a midi key press or key release event?
+    {
+      const auto tmp = std::vector<uint8_t>(std::next(stream_begin, static_cast<int>(nb_read)),
+					    std::next(stream_begin, static_cast<int>(nb_read + 3)));
+      if (is_key_release_event(tmp))
+      {
+	const struct key_data key_ev = { .pitch = tmp[1],
+					 .ev_type = key_data::type::released };
+	res.push_back(std::move(key_ev));
+      }
+      else if (is_key_down_event(tmp))
+      {
+	const struct key_data key_ev = { .pitch = tmp[1],
+					 .ev_type = key_data::type::pressed };
+	res.push_back(std::move(key_ev));
+      }
+    }
+
+    nb_read += this_event_size;
+  }
+
+  return res;
+}
+
 // in case there is a release pitch and a play pitch at the same time
 // in the midi part, make sure the release happens *before* the play.
 // the release must be from a previous play as otherwise it would mean
