@@ -15,11 +15,14 @@ template <typename F>
 struct ScopeExit {
     ScopeExit(F code) : f(code) {}
     ~ScopeExit() { f(); }
+
+    ScopeExit(const ScopeExit& other) = default;
+
     F f;
 };
 
 template <typename F>
-ScopeExit<F> MakeScopeExit(F f) {
+inline ScopeExit<F> MakeScopeExit(F f) {
     return ScopeExit<F>(f);
 };
 
