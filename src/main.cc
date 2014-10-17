@@ -12,6 +12,7 @@ struct options
     bool print_help;
     bool list_ports;
     unsigned int output_port;
+    bool was_output_port_set;
     unsigned int input_port;
     bool was_input_port_set;
     std::string filename;
@@ -21,6 +22,7 @@ struct options
       , print_help (false)
       , list_ports (false)
       , output_port (0)
+      , was_output_port_set(false)
       , input_port (0)
       , was_input_port_set(false)
       , filename ("")
@@ -59,6 +61,7 @@ struct options get_opts(int argc, char** argv)
       {
 	++i;
 	res.output_port = get_port(argv[i]);
+	res.was_output_port_set = true;
       }
       continue;
     }
@@ -128,6 +131,12 @@ int main(int argc, char** argv)
   {
     list_midi_ports(std::cout);
     return 0;
+  }
+
+  if (not opts.was_output_port_set)
+  {
+    std::cerr << "Error: the midi output port must be set from command line\n";
+    return 2;
   }
 
   if ((opts.filename == "") and (not opts.was_input_port_set))
