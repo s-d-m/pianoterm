@@ -12,6 +12,8 @@ struct options
     bool print_help;
     bool list_ports;
     unsigned int output_port;
+    unsigned int input_port;
+    bool was_input_port_set;
     std::string filename;
 
     options()
@@ -19,6 +21,8 @@ struct options
       , print_help (false)
       , list_ports (false)
       , output_port (0)
+      , input_port (0)
+      , was_input_port_set(false)
       , filename ("")
     {
     }
@@ -44,7 +48,7 @@ struct options get_opts(int argc, char** argv)
       continue;
     }
 
-    if ((arg == "-p") or (arg == "--port"))
+    if ((arg == "-o") or (arg == "--output-port"))
     {
       if (i == argc - 1)
       {
@@ -54,7 +58,23 @@ struct options get_opts(int argc, char** argv)
       else
       {
 	++i;
-	res.output_port = get_output_port(argv[i]);
+	res.output_port = get_port(argv[i]);
+      }
+      continue;
+    }
+
+    if ((arg == "-i") or (arg == "--input-port"))
+    {
+      if (i == argc - 1)
+      {
+	res.has_error = true;
+	return res;
+      }
+      else
+      {
+	++i;
+	res.input_port = get_port(argv[i]);
+	res.was_input_port_set = true;
       }
       continue;
     }
@@ -78,9 +98,10 @@ static void usage(std::ostream& out, const std::string& progname)
   out << "Usage: " << progname << " [Options] [File]\n"
       << "\n"
       << "Options:\n"
-      << "  -h, --help		print this help\n"
-      << "  -l, --list		list the midi output ports available for use\n"
-      << "  -p, --port <NUM>	the output midi port to use\n";
+      << "  -h, --help			print this help\n"
+      << "  -l, --list			list the midi output ports available for use\n"
+      << "  -o, --output-port <NUM>	the output midi port to use\n"
+      << "  -i, --input-port <NUM>	the input midi to use if no file is provided\n";
 }
 
 
@@ -109,11 +130,18 @@ int main(int argc, char** argv)
     return 0;
   }
 
-  if (opts.filename == "")
+  if ((opts.filename == "") and (not opts.was_input_port_set))
   {
     usage(std::cerr, prog_name);
     return 2;
   }
+
+  if ((opts.filename != "") and (opts.was_input_port_set))
+  {
+    std::cerr << "Error: can't use a midi file and a midi input port simultaneously\n";
+    return 2;
+  }
+
 
   try
   {

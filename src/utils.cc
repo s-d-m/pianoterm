@@ -362,7 +362,7 @@ static unsigned int get_nb_output_ports()
   return player.getPortCount();
 }
 
-unsigned int get_output_port(const std::string& s)
+unsigned int get_port(const std::string& s)
 {
   const auto nb_outputs = get_nb_output_ports();
 

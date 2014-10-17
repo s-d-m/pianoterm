@@ -106,7 +106,6 @@ std::vector<struct key_data>
 midi_to_key_events(const std::vector<uint8_t>& message_stream);
 
 void list_midi_ports(std::ostream& out);
-unsigned int get_default_output_port();
-unsigned int get_output_port(const std::string& s);
+unsigned int get_port(const std::string& s);
 
 #endif /* UTILS_HH_ */
