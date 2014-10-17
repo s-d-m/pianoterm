@@ -145,11 +145,18 @@ int main(int argc, char** argv)
 
   try
   {
-    const auto midi_events = get_midi_events(opts.filename);
-    const auto keyboard_events = get_key_events(midi_events);
-    const auto song = group_events_by_time(midi_events, keyboard_events);
+    if (opts.filename != "")
+    {
+      const auto midi_events = get_midi_events(opts.filename);
+      const auto keyboard_events = get_key_events(midi_events);
+      const auto song = group_events_by_time(midi_events, keyboard_events);
 
-    play(song, opts.output_port);
+      play(song, opts.output_port);
+    }
+    else
+    {
+      play(opts.input_port, opts.output_port);
+    }
   }
   catch (std::exception& e)
   {
