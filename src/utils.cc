@@ -328,27 +328,27 @@ group_events_by_time(const std::vector<struct midi_event>& midi_events,
 }
 
 
-void list_output_midi_ports(std::ostream& out)
+void list_midi_ports(std::ostream& out)
 {
   RtMidiOut player;
 
-  const auto nb_outputs = player.getPortCount();
-  if (nb_outputs == 0)
+  const auto nb_ports = player.getPortCount();
+  if (nb_ports == 0)
   {
-    out << "Sorry: no midi output found\n";
+    out << "Sorry: no midi port found\n";
   }
   else
   {
-    if (nb_outputs == 1)
+    if (nb_ports == 1)
     {
-      out << "1 output found:\n";
+      out << "1 port found:\n";
     }
     else
     {
-      out << nb_outputs << " outputs found:\n";
+      out << nb_ports << " ports found:\n";
     }
 
-    for (auto i = decltype(nb_outputs){0}; i < nb_outputs; ++i)
+    for (auto i = decltype(nb_ports){0}; i < nb_ports; ++i)
     {
       out << "  " << i << " -> " << player.getPortName(i) << "\n";
     }
@@ -362,19 +362,6 @@ static unsigned int get_nb_output_ports()
   return player.getPortCount();
 }
 
-unsigned int get_default_output_port()
-{
-  const auto nb_outputs = get_nb_output_ports();
-
-  if (nb_outputs == 0)
-  {
-    std::cerr << "Sorry: no midi output found\n";
-  }
-
-  return nb_outputs / 2;
-}
-
-
 unsigned int get_output_port(const std::string& s)
 {
   const auto nb_outputs = get_nb_output_ports();
@@ -384,8 +371,8 @@ unsigned int get_output_port(const std::string& s)
     const auto res = std::stoi(s);
     if ((res < 0) or (static_cast<unsigned int>(res) >= nb_outputs))
     {
-      std::cerr << "Warning: invalid port, falling back to default one\n";
-      return get_default_output_port();
+      std::cerr << "Warning: invalid port\n";
+      return 0;
     }
     return static_cast<unsigned int>(res);
   }
@@ -401,7 +388,7 @@ unsigned int get_output_port(const std::string& s)
       }
     }
 
-    std::cerr << "Warning: invalid port, falling back to the default one.\n";
-    return get_default_output_port();
+    std::cerr << "Warning: invalid port\n";
+    return 0;
   }
 }

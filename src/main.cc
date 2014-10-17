@@ -18,7 +18,7 @@ struct options
       : has_error (false)
       , print_help (false)
       , list_ports (false)
-      , output_port (get_default_output_port())
+      , output_port (0)
       , filename ("")
     {
     }
@@ -105,7 +105,7 @@ int main(int argc, char** argv)
 
   if (opts.list_ports)
   {
-    list_output_midi_ports(std::cout);
+    list_midi_ports(std::cout);
     return 0;
   }
 
