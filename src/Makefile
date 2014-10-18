@@ -1,4 +1,5 @@
-TARGET := main
+TARGET_DIR := ../bin
+TARGET := ${TARGET_DIR}/pianoterm
 
 SRC :=  main.cc \
 	midi_reader.cc \
@@ -92,6 +93,7 @@ SCAN_BUILD = scan-build
 all: ${TARGET}
 
 ${TARGET}: ${OBJS}
+	-mkdir -p ${TARGET_DIR}
 	${CXX} ${CXXFLAGS} -o ${TARGET} ${OBJS} ${LIBS}
 
 %.o: %.cc
