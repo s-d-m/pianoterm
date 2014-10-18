@@ -89,7 +89,7 @@ ifeq ($(GPROF),1)
   CXXFLAGS += -pg
 endif
 
-SCAN_BUILD = scan-build-3.6
+SCAN_BUILD = scan-build
 
 all: ${TARGET}
 
