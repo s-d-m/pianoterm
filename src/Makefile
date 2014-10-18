@@ -9,8 +9,6 @@ SRC :=  main.cc \
 
 OBJS := ${SRC:.cc=.o}
 
-CXX = clang++
-
 LIBS= -ltermbox -lrtmidi
 
 ifeq ($(findstring clang,$(CXX)), clang)
