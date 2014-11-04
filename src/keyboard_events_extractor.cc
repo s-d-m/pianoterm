@@ -99,20 +99,16 @@ get_key_events(const std::vector<struct midi_event>& midi_events)
   {
     if (is_key_down_event(ev))
     {
-      const struct key_event k = { .time = ev.time,
-				   .data = { .pitch = ev.data[1],
-					     .ev_type = key_data::type::pressed } };
-
-      res.push_back(std::move(k));
+      res.emplace_back(ev.time /* time */,
+		       ev.data[1] /* pitch */,
+		       key_data::type::pressed /* event type */);
     }
 
     if (is_key_release_event(ev))
     {
-      const struct key_event k = { .time = ev.time,
-				   .data = { .pitch = ev.data[1],
-					     .ev_type = key_data::type::released } };
-
-      res.push_back(std::move(k));
+      res.emplace_back(ev.time /* time */,
+		       ev.data[1] /* pitch */,
+		       key_data::type::released /* event type */);
     }
 
     // sanity check: an event can't be a key down and a key pressed at the same time

@@ -89,6 +89,15 @@ struct music_event
       , key_events ()
     {
     }
+
+    music_event(decltype(music_event::time) init_time,
+		decltype(music_event::midi_messages) init_midi_messages,
+		decltype(music_event::key_events) init_key_events)
+      : time (init_time)
+      , midi_messages (init_midi_messages)
+      , key_events (init_key_events)
+    {
+    }
 };
 
 // a song is just a succession of music_event to be played

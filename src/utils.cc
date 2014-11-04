@@ -127,15 +127,13 @@ midi_to_key_events(const std::vector<uint8_t>& message_stream)
 					    std::next(stream_begin, static_cast<int>(nb_read + 3)));
       if (is_key_release_event(tmp))
       {
-	const struct key_data key_ev = { .pitch = tmp[1],
-					 .ev_type = key_data::type::released };
-	res.push_back(std::move(key_ev));
+	res.emplace_back(tmp[1] /* pitch */,
+			 key_data::type::released /* event type */);
       }
       else if (is_key_down_event(tmp))
       {
-	const struct key_data key_ev = { .pitch = tmp[1],
-					 .ev_type = key_data::type::pressed };
-	res.push_back(std::move(key_ev));
+	res.emplace_back(tmp[1] /* pitch*/,
+			 key_data::type::pressed /* event type */);
       }
     }
 
@@ -199,10 +197,9 @@ group_events_by_time(const std::vector<struct midi_event>& midi_events,
 
     if (elt == res.end())
     {
-      struct music_event new_elt;
-      new_elt.time = ev_time;
-      new_elt.midi_messages.push_back(m.data);
-      res.push_back(std::move(new_elt));
+      res.emplace_back(ev_time,
+		       std::move(decltype(music_event::midi_messages){m.data}),
+		       std::move(decltype(music_event::key_events){}));
     }
     else
     {
@@ -220,10 +217,9 @@ group_events_by_time(const std::vector<struct midi_event>& midi_events,
 
     if (elt == res.end())
     {
-      struct music_event new_elt;
-      new_elt.time = ev_time;
-      new_elt.key_events.push_back(k.data);
-      res.push_back(std::move(new_elt));
+      res.emplace_back(ev_time,
+		       std::move(decltype(music_event::midi_messages){}),
+		       std::move(decltype(music_event::key_events){k.data}));
     }
     else
     {
