@@ -1,7 +1,7 @@
 PIANOTERM
 =========
 
-Pianoterm, as the name suggest, display a piano in your terminal.
+Pianoterm, as the name suggests, displays a piano in your terminal.
 It supports playing midi files, and waiting for events from a midi input port.
 Have a look at the following video to get a preview of what it does.
 
