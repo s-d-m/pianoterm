@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <string>
+#include <cstddef> // for std::size_t
 #include "utils.hh"
 
 bool is_key_down_event(const std::vector<uint8_t>& data)
@@ -29,13 +30,13 @@ bool is_key_release_event(const struct midi_event& ev)
 
 
 static
-unsigned int get_variable_data_length(const std::vector<uint8_t>& message_stream, unsigned int start_pos)
+std::size_t get_variable_data_length(const std::vector<uint8_t>& message_stream, std::size_t start_pos)
 {
-  unsigned int array_size = 0;
-  unsigned int nb_read = 0;
   const auto max_res = message_stream.size() - start_pos;
   const auto end = message_stream.end();
   const auto begin = message_stream.begin();
+  auto array_size = decltype(max_res){0};
+  auto nb_read = decltype(array_size){0};
 
   for (auto it = std::next(begin, static_cast<int>(start_pos)); it != end; ++it)
   {
@@ -51,7 +52,7 @@ unsigned int get_variable_data_length(const std::vector<uint8_t>& message_stream
   return max_res;
 }
 
-static unsigned int get_next_event_size(const std::vector<uint8_t>& message_stream, unsigned int start_pos)
+static std::size_t get_next_event_size(const std::vector<uint8_t>& message_stream, std::size_t start_pos)
 {
   const auto stream_size = message_stream.size() - start_pos;
   const auto stream = std::next(message_stream.begin(), static_cast<int>(start_pos));
@@ -62,7 +63,7 @@ static unsigned int get_next_event_size(const std::vector<uint8_t>& message_stre
     return stream_size;
   }
 
-  unsigned int res = 1; // the first byte which the event type (channel, meta, sysex)
+  std::size_t res = 1; // the first byte which the event type (channel, meta, sysex)
   const auto ev_type = stream[0];
   if (ev_type == 0xFF)
   {
