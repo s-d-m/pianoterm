@@ -137,7 +137,7 @@ static uint16_t get_pulses_per_quarter_note(std::fstream& file)
   }
 }
 
-static struct midi_event get_event(std::fstream& file)
+static struct midi_event get_event(std::fstream& file, uint8_t last_status_byte)
 {
   struct midi_event res;
   res.time = get_variable_length_value(file);
@@ -145,7 +145,11 @@ static struct midi_event get_event(std::fstream& file)
   // an event can be of three form: Control event, META event, or System
   // Exclusive event. See http://www.sonicspot.com/guide/midifiles.html
 
-  const auto event_type = read_big_endian<uint8_t>(file);
+  // if the next byte is not a valid status byte (i.e. a midi event type)
+  // reuse the last one.
+  const auto event_type = ((file.peek() & 0x80) == 0)
+			  ? last_status_byte
+			  : read_big_endian<uint8_t>(file);
   res.data.push_back(event_type);
 
   if (event_type == 0xFF)
@@ -302,12 +306,15 @@ std::vector<struct midi_event> get_midi_events(const std::string& filename)
 
     // reset the current time for the beginning of the track
     uint64_t this_time = 0;
-
     bool end_of_track_found = false;
+
+    uint8_t last_status_byte = 0x00; // 0 is an invalid status byte (i.e. type of midi event)
 
     do
     {
-      auto event = get_event(file);
+      auto event = get_event(file, last_status_byte);
+
+      last_status_byte = event.data[0];
 
       this_time += event.time; // event.time is a delta time compared to previous event
       event.time = this_time; // make the event time an absolute one
