@@ -161,18 +161,6 @@ static uint16_t get_tickdiv(std::fstream& file, /* out param */ enum tempo_style
   }
 }
 
-struct tempo_event
-{
-    tempo_event(uint64_t init_occuring_time_ns,
-		uint64_t init_us_per_quarter_note)
-      : occuring_time_ns(init_occuring_time_ns)
-      , us_per_quarter_note(init_us_per_quarter_note)
-    {
-    }
-
-    uint64_t occuring_time_ns;
-    uint64_t us_per_quarter_note;
-};
 
 static struct midi_event get_event(std::fstream& file, uint8_t last_status_byte)
 {
@@ -233,31 +221,122 @@ static struct midi_event get_event(std::fstream& file, uint8_t last_status_byte)
   throw std::invalid_argument("Error: invalid type of MIDI event");
 }
 
-
-static uint64_t get_us_per_quarter_note_at_time(const std::vector<struct tempo_event>& tempos,
-						uint64_t this_time)
+// read the midi events from the track and pushes them at the end of res
+//
+// MIDI format 1 (multiple track) can't have tempo event after the first track.
+// call with the last to true when reading track 2+ from a format 1 to ensure
+// validity check.
+static void get_track_events(std::vector<struct midi_event>& res,
+			     std::fstream& file,
+			     bool fail_on_tempo_event)
 {
-  if (tempos.empty())
+  // http://www.ccarh.org/courses/253/handout/smf/
+  //
+  // A track chunk consists of a literal identifier string, a length indicator
+  // specifying the size of the track, and actual event data making up the track.
+  //
+  //    track_chunk = "MTrk" + <length> + <track_event> [+ <track_event> ...]
+  //
+  // "MTrk" 4 bytes
+  //     the literal string MTrk. This marks the beginning of a track.
+  // <length> 4 bytes
+  //     the number of bytes in the track chunk following this number.
+  // <track_event>
+  //     a sequenced track event.
+
+  const char track_header[4] = { 'M', 'T', 'r', 'k' };
+  if (!is_header_correct(file, track_header))
   {
-    return 120;
+    throw std::invalid_argument("Error: not a midi file (wrong track header)");
   }
 
-  const auto next = std::find_if( tempos.begin(), tempos.end(), [=] (const struct tempo_event& ev) {
-      return ev.occuring_time_ns > this_time;
-    });
+  // skip the length
+  read_big_endian32(file);
 
-  if (next == tempos.begin())
+  // reset the current time for the beginning of the track
+  bool end_of_track_found = false;
+  uint8_t last_status_byte = 0x00; // 0 is an invalid status byte (i.e. type of midi event)
+  uint64_t this_time = 0;
+
+  do
   {
-    return 120;
-  }
+    res.emplace_back( get_event(file, last_status_byte) );
+    auto& event = res.back();
+    event.time += this_time;
+    this_time = event.time;
 
-  if (next == tempos.end())
-  {
-    return tempos.back().us_per_quarter_note;
-  }
+    last_status_byte = event.data[0];
+    end_of_track_found = (event.data[0] == 0xff) and (event.data[1] == 0x2f);
 
-  return std::prev(next)->us_per_quarter_note;
+    if ((event.data[0] == 0xff) and (event.data[1] == 0x51) // this is a tempo event
+	and fail_on_tempo_event)
+    {
+      throw std::invalid_argument("Error: tempo event found at a forbidden place.");
+    }
+
+  }
+  while (!end_of_track_found);
+
 }
+
+// the time correspond to midi tics when calling the function.
+// it is replaced by real time (dimension of a second)
+static void set_real_timings(std::vector<struct midi_event>& events,
+			     const uint16_t tickdiv,
+			     const enum tempo_style timing_type)
+{
+  switch (timing_type)
+  {
+    case timecode:
+    {
+      for (auto& ev : events)
+      {
+	ev.time = ev.time * tickdiv * 1000 * 1000; // nanosecond
+      }
+      break;
+    }
+    case metrical_timing:
+    {
+      uint64_t last_ticks = 0;
+      uint64_t last_time = 0;
+
+      // default tempo is 120 beats per minutes
+      // 1 minute -> 60 000 000 microseconds
+      // 60000000 / 120 -> 500 000 microseconds per quarter note
+      uint64_t us_per_quarter_note = 500000;
+
+      for (auto& ev : events)
+      {
+	const auto delta_ticks = ev.time - last_ticks;
+	last_ticks = ev.time;
+	ev.time = last_time + delta_ticks * us_per_quarter_note * 1000 / tickdiv;
+	last_time = ev.time;
+
+	if ((ev.data[0] == 0xff) and (ev.data[1] == 0x51))
+	{
+	  // this is a tempo event
+	  if (ev.data.size() != 6)
+	  {
+	    throw std::invalid_argument("Error: tempo event has an invalid size");
+	  }
+
+	  us_per_quarter_note = static_cast<decltype(us_per_quarter_note)>(
+	    (ev.data[3] << 16) | (ev.data[4] << 8) | (ev.data[5]));
+	}
+      }
+      break;
+    }
+#if !defined(__clang__)
+    // clang will complain that the default case is useless because all
+    // possible values in the enum are already taken into account.
+    // g++ complains of a missing one
+    default:
+      __builtin_unreachable();
+      break;
+#endif
+  }
+}
+
 
 std::vector<struct midi_event> get_midi_events(const std::string& filename)
 {
@@ -335,108 +414,11 @@ std::vector<struct midi_event> get_midi_events(const std::string& filename)
   }
 
   std::vector<struct midi_event> events; // the return value
-  std::vector<struct tempo_event> tempos; /* us per quarter note */
 
   // read the tracks
   for (auto i = decltype(nb_tracks){0}; i < nb_tracks; i++)
   {
-    // http://www.ccarh.org/courses/253/handout/smf/
-    //
-    // A track chunk consists of a literal identifier string, a length indicator
-    // specifying the size of the track, and actual event data making up the track.
-    //
-    //    track_chunk = "MTrk" + <length> + <track_event> [+ <track_event> ...]
-    //
-    // "MTrk" 4 bytes
-    //     the literal string MTrk. This marks the beginning of a track.
-    // <length> 4 bytes
-    //     the number of bytes in the track chunk following this number.
-    // <track_event>
-    //     a sequenced track event.
-
-    const char track_header[4] = { 'M', 'T', 'r', 'k' };
-    if (!is_header_correct(file, track_header))
-    {
-      throw std::invalid_argument("Error: not a midi file (wrong track header)");
-    }
-
-    // skip the length
-    read_big_endian32(file);
-
-    // reset the current time for the beginning of the track
-    uint64_t this_time = 0;
-    bool end_of_track_found = false;
-
-    uint8_t last_status_byte = 0x00; // 0 is an invalid status byte (i.e. type of midi event)
-
-    do
-    {
-      auto event = get_event(file, last_status_byte);
-      last_status_byte = event.data[0];
-
-      switch (timing_type)
-      {
-	case metrical_timing:
-	{
-	  // With metrical timing, the timing interval is us_per_quarter_note
-	  // related
-
-	  // convert the event ticks to nano seconds
-	  //                         elt.time * us_per_quarter_note * 1000
-	  // time in nanosec = ----------------------------------
-	  //                                tickdiv
-	  const auto us_per_quarter_note = get_us_per_quarter_note_at_time(tempos, this_time); // default midi value for us_per_quarter_note
-	  this_time += event.time * us_per_quarter_note * 1000 / tickdiv; // event.time is a delta time compared to previous event
-	  event.time = this_time; // make the event time an absolute one
-	  break;
-	}
-	case timecode:
-	{
-	  // With timecode the timing interval is in absolute
-	  // time, and hence not related to us_per_quarter_note.
-
-	  //                         elt.time * us_per_quarter_note * 1000
-	  // time in nanosec = ----------------------------------
-	  //                                tickdiv
-	  this_time += event.time * 1000 / tickdiv; // event.time is a delta time compared to previous event
-	  event.time = this_time; // make the event time an absolute one
-	  break;
-	}
-
-#if !defined(__clang__)
-  // clang will complain that the default case is useless because all
-  // possible values in the enum are already taken into account.
-  // g++ complains of a missing one
-	default:
-	  break;
-#endif
-      }
-
-      end_of_track_found = (event.data[0] == 0xff) and (event.data[1] == 0x2f);
-
-
-      if ((event.data[0] == 0xff) and (event.data[1] == 0x51))
-      {
-	// this is a tempo event.
-	if (event.data.size() != 6)
-	{
-	  throw std::invalid_argument("Error: tempo event has an invalid size");
-	}
-
-	const auto new_tempo = static_cast<decltype(tempo_event::us_per_quarter_note)>(
-	  (event.data[3] << 16)
-	  | (event.data[4] << 8)
-	  |  event.data[5]);
-	tempos.emplace_back( tempo_event(this_time, new_tempo) );
-      }
-
-      if ((event.data[0] & 0xF0) != 0xF0)
-      {
-	// this is a midi channel event (the only ones of interest for us)
-	events.push_back(std::move(event));
-      }
-    }
-    while (!end_of_track_found);
+    get_track_events(events, file, (type == MIDI_TYPE::multiple_track) and (i != 0));
   }
 
   // sanity check: the midi file should have been entirely read by now (no more
@@ -447,10 +429,12 @@ std::vector<struct midi_event> get_midi_events(const std::string& filename)
     throw std::invalid_argument("Error: invalid midi file (extra bytes after end of MIDI data)");
   }
 
-  // sort the events by starting time
-  std::sort(events.begin(), events.end(), [] (const struct midi_event& a, const struct midi_event& b) {
+  // sort the events by time
+  std::stable_sort(events.begin(), events.end(), [] (const struct midi_event& a, const struct midi_event& b) {
       return a.time < b.time;
     });
+
+  set_real_timings(events, tickdiv, timing_type);
 
   return events;
 }
