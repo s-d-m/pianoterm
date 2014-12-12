@@ -48,6 +48,11 @@ static uint64_t get_variable_length_value(const std::vector<uint8_t>& array)
   // recreate the right value by removing the continuation bits
   uint64_t res = 0;
 
+  if (array.size() > sizeof(res))
+  {
+    throw std::invalid_argument("This program can't handle a variable length value with more than 8 bytes. Bytes used: " + std::to_string(array.size()));
+  }
+
   const auto nb_elts = array.size();
   for (auto i = decltype(nb_elts){0}; i < nb_elts; ++i)
   {
@@ -57,10 +62,19 @@ static uint64_t get_variable_length_value(const std::vector<uint8_t>& array)
   return res;
 }
 
-static uint64_t get_variable_length_value(std::fstream& file)
+// reads a variable length value. BUT it must be four bytes maximum.
+// otherwise it is not valid.
+static uint32_t get_relative_time(std::fstream& file)
 {
+  // recreate the right value by removing the continuation bits
   const auto buffer = get_variable_length_array(file);
-  return get_variable_length_value(buffer);
+
+  if (buffer.size() > 4)
+  {
+    throw std::invalid_argument("Invalid relative timing found.\nMaximum size allowed is 4 bytes. Bytes used: " + std::to_string(buffer.size()));
+  }
+
+  return static_cast<uint32_t>(get_variable_length_value(buffer));
 }
 
 
@@ -140,7 +154,7 @@ static uint16_t get_pulses_per_quarter_note(std::fstream& file)
 static struct midi_event get_event(std::fstream& file, uint8_t last_status_byte)
 {
   struct midi_event res;
-  res.time = get_variable_length_value(file);
+  res.time = get_relative_time(file);
 
   // an event can be of three form: Control event, META event, or System
   // Exclusive event. See http://www.sonicspot.com/guide/midifiles.html
