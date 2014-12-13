@@ -250,8 +250,8 @@ static void get_track_events(std::vector<struct midi_event>& res,
     throw std::invalid_argument("Error: not a midi file (wrong track header)");
   }
 
-  // skip the length
-  read_big_endian32(file);
+  const auto track_length = read_big_endian32(file);
+  const auto track_start = file.tellg();
 
   // reset the current time for the beginning of the track
   bool end_of_track_found = false;
@@ -277,6 +277,12 @@ static void get_track_events(std::vector<struct midi_event>& res,
   }
   while (!end_of_track_found);
 
+  const auto track_end = file.tellg();
+
+  if ((track_end - track_start) != track_length)
+  {
+    throw std::invalid_argument("Error in midi file: incoherent track length detected.");
+  }
 }
 
 // the time correspond to midi tics when calling the function.
