@@ -285,6 +285,14 @@ static void set_real_timings(std::vector<struct midi_event>& events,
 			     const uint16_t tickdiv,
 			     const enum tempo_style timing_type)
 {
+  // precondition: the events must be sorted by ticks
+  if (! std::is_sorted( events.begin(), events.end(), [] (const struct midi_event& a, const struct midi_event& b) {
+	return a.time < b.time;
+      }))
+  {
+    throw std::runtime_error("Error: the events are not sorted.");
+  }
+
   switch (timing_type)
   {
     case timecode:
@@ -297,8 +305,8 @@ static void set_real_timings(std::vector<struct midi_event>& events,
     }
     case metrical_timing:
     {
-      uint64_t last_ticks = 0;
-      uint64_t last_time = 0;
+      uint64_t ref_ticks = 0;
+      uint64_t ref_time = 0;
 
       // default tempo is 120 beats per minutes
       // 1 minute -> 60 000 000 microseconds
@@ -307,10 +315,9 @@ static void set_real_timings(std::vector<struct midi_event>& events,
 
       for (auto& ev : events)
       {
-	const auto delta_ticks = ev.time - last_ticks;
-	last_ticks = ev.time;
-	ev.time = last_time + delta_ticks * us_per_quarter_note * 1000 / tickdiv;
-	last_time = ev.time;
+	const auto last_ticks = ev.time;
+	const auto delta_ticks = last_ticks - ref_ticks;
+	ev.time = ref_time + (delta_ticks * us_per_quarter_note * 1000 / tickdiv);
 
 	if ((ev.data[0] == 0xff) and (ev.data[1] == 0x51))
 	{
@@ -319,6 +326,9 @@ static void set_real_timings(std::vector<struct midi_event>& events,
 	  {
 	    throw std::invalid_argument("Error: tempo event has an invalid size");
 	  }
+
+	  ref_ticks = last_ticks;
+	  ref_time = ev.time;
 
 	  us_per_quarter_note = static_cast<decltype(us_per_quarter_note)>(
 	    (ev.data[3] << 16) | (ev.data[4] << 8) | (ev.data[5]));
