@@ -446,5 +446,15 @@ std::vector<struct midi_event> get_midi_events(const std::string& filename)
 
   set_real_timings(events, tickdiv, timing_type);
 
-  return events;
+  // only keep MIDI events (filter out sysex and meta events)
+  decltype(events) res;
+  for (const auto& ev : events)
+  {
+    if ((ev.data[0] & 0xF0) != 0xF0)
+    {
+      res.emplace_back(ev);
+    }
+  }
+
+  return res;
 }
