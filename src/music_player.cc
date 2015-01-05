@@ -400,10 +400,15 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
       gettimeofday(&timeval, nullptr);
       const auto started_time = static_cast<uint64_t>(timeval.tv_sec * 1000000 + timeval.tv_usec);
 
+      bool is_in_pause = false;
+
       do
       {
 	struct tb_event tmp;
-	auto ret_val = tb_peek_event(&tmp, static_cast<int>((time_to_wait - waited_time) / 1000)); // tb_peek_event has a timeout set in milliseconds
+	const auto timeout = (time_to_wait > waited_time)
+			     ? std::min(100, static_cast<int>((time_to_wait - waited_time) / 1000))
+	                     : 100;
+	auto ret_val = tb_peek_event(&tmp, timeout); // timeout in ms
 	switch (ret_val)
 	{
 	  case TB_EVENT_KEY:
@@ -413,26 +418,9 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
 		return; // ctrl + q means quit
 
 	      case TB_KEY_SPACE:
-		// pause, wait for a second space being pressed (to unpause) or a ctrl+q to quit
-	      {
-		for (;;)
-		{
-		  if (tb_poll_event(&tmp) == TB_EVENT_KEY)
-		  {
-		    if (tmp.key == TB_KEY_SPACE)
-		    {
-		      break;
-		    }
-
-		    if (tmp.key == TB_KEY_CTRL_Q)
-		    {
-		      return;
-		    }
-		  }
-
-		}
+		is_in_pause = (not is_in_pause); // toggle pause
 		break;
-	      }
+
 	      default:
 		break;
 	    }
@@ -446,10 +434,27 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
 	    break;
 	}
 
+	if (exit_required)
+	{
+	  return;
+	}
+
+	if (pause_required)
+	{
+	  pause_required = 0;
+	  is_in_pause = true;
+	}
+
+	if (continue_required)
+	{
+	  continue_required = 0;
+	  is_in_pause = false;
+	}
+
 	gettimeofday(&timeval, nullptr);
 	const auto time_now = static_cast<uint64_t>(timeval.tv_sec * 1000000 + timeval.tv_usec);
 	waited_time = time_now - started_time;
-      } while (waited_time < time_to_wait);
+      } while ((is_in_pause) or (waited_time < time_to_wait));
     }
   }
 }
