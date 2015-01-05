@@ -6,7 +6,7 @@ SRC :=  main.cc \
 	keyboard_events_extractor.cc \
 	utils.cc \
 	music_player.cc \
-
+	signals_handler.cc \
 
 OBJS := ${SRC:.cc=.o}
 

@@ -5,8 +5,19 @@ extern "C" {
 #include <sys/time.h> // for gettimofday
 }
 
+#include <signal.h> // for sig_atomic_t type
+
 #include "music_player.hh"
 #include "keyboard_events_extractor.hh"
+
+// Global variables to "share" state between the signal handler and
+// the main event loop.  Only these two pieces should be allowed to
+// use these global variables.  To avoid any other piece piece of code
+// from using it, the declaration is not written on a header file on
+// purpose.
+extern volatile sig_atomic_t pause_required;
+extern volatile sig_atomic_t continue_required;
+extern volatile sig_atomic_t exit_required;
 
 static
 void draw_piano_key(int x, int y, int width, int height,  uint16_t color)
@@ -389,10 +400,15 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
       gettimeofday(&timeval, nullptr);
       const auto started_time = static_cast<uint64_t>(timeval.tv_sec * 1000000 + timeval.tv_usec);
 
+      bool is_in_pause = false;
+
       do
       {
 	struct tb_event tmp;
-	auto ret_val = tb_peek_event(&tmp, static_cast<int>((time_to_wait - waited_time) / 1000)); // tb_peek_event has a timeout set in milliseconds
+	const auto timeout = (time_to_wait > waited_time)
+			     ? std::min(100, static_cast<int>((time_to_wait - waited_time) / 1000))
+	                     : 100;
+	auto ret_val = tb_peek_event(&tmp, timeout); // timeout in ms
 	switch (ret_val)
 	{
 	  case TB_EVENT_KEY:
@@ -402,26 +418,9 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
 		return; // ctrl + q means quit
 
 	      case TB_KEY_SPACE:
-		// pause, wait for a second space being pressed (to unpause) or a ctrl+q to quit
-	      {
-		for (;;)
-		{
-		  if (tb_poll_event(&tmp) == TB_EVENT_KEY)
-		  {
-		    if (tmp.key == TB_KEY_SPACE)
-		    {
-		      break;
-		    }
-
-		    if (tmp.key == TB_KEY_CTRL_Q)
-		    {
-		      return;
-		    }
-		  }
-
-		}
+		is_in_pause = (not is_in_pause); // toggle pause
 		break;
-	      }
+
 	      default:
 		break;
 	    }
@@ -435,10 +434,27 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
 	    break;
 	}
 
+	if (exit_required)
+	{
+	  return;
+	}
+
+	if (pause_required)
+	{
+	  pause_required = 0;
+	  is_in_pause = true;
+	}
+
+	if (continue_required)
+	{
+	  continue_required = 0;
+	  is_in_pause = false;
+	}
+
 	gettimeofday(&timeval, nullptr);
 	const auto time_now = static_cast<uint64_t>(timeval.tv_sec * 1000000 + timeval.tv_usec);
 	waited_time = time_now - started_time;
-      } while (waited_time < time_to_wait);
+      } while ((is_in_pause) or (waited_time < time_to_wait));
     }
   }
 }
@@ -507,10 +523,24 @@ void play(unsigned int midi_input_port, unsigned int midi_output_port)
 
   sound_listener.setCallback(callback_fn, &callback_data);
 
+  // This mode is playing from a midi keyboard as input, not a midi
+  // file.  In this mode there is play/pause. It wouldn't make
+  // sense. Therefore the event loop will only look at a signal
+  // requiring to shutdown the program, and will happily ignore any
+  // SIGINT/SIGCONT it might receive.
+
   for (;;)
   {
+    if (exit_required)
+    {
+      return;
+    }
+
     struct tb_event ev;
-    const auto ret_val = tb_poll_event(&ev);
+
+    // use peek_event with a _small_ timeout instead of waiting forever
+    // as we may need to quit if we got a signal requesting so.
+    const auto ret_val = tb_peek_event(&ev, 100 /* timeout in ms */);
 
     switch (ret_val)
     {
