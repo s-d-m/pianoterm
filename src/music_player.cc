@@ -143,7 +143,7 @@ static void draw_keyboard(const struct keys_color& keyboard, int pos_x, int pos_
 }
 
 
-#define octave_color(X)						\
+#define OCTAVE_COLOR(X)						\
   case note_kind::do_##X:					\
   keyboard.octaves[(X - 1)].do_color = normal_key_color;	\
   break;							\
@@ -207,13 +207,13 @@ static void set_color(struct keys_color& keyboard, enum note_kind note, uint8_t 
       keyboard.si_0_color = normal_key_color;
       break;
 
-      octave_color(1);
-      octave_color(2);
-      octave_color(3);
-      octave_color(4);
-      octave_color(5);
-      octave_color(6);
-      octave_color(7);
+      OCTAVE_COLOR(1);
+      OCTAVE_COLOR(2);
+      OCTAVE_COLOR(3);
+      OCTAVE_COLOR(4);
+      OCTAVE_COLOR(5);
+      OCTAVE_COLOR(6);
+      OCTAVE_COLOR(7);
 
     case note_kind::do_8:
       keyboard.do_8_color = normal_key_color;
@@ -229,7 +229,7 @@ static void set_color(struct keys_color& keyboard, enum note_kind note, uint8_t 
   #pragma clang diagnostic pop
 #endif
 
-#undef octave_color
+#undef OCTAVE_COLOR
 
 static void set_color(struct keys_color& keyboard, enum note_kind note)
 {
