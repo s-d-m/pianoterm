@@ -5,11 +5,11 @@
 
 #include "signals_handler.hh"
 
-extern volatile sig_atomic_t interrupt_required;
+extern volatile sig_atomic_t pause_required;
 extern volatile sig_atomic_t continue_required;
 extern volatile sig_atomic_t exit_required;
 
-volatile sig_atomic_t interrupt_required = 0;
+volatile sig_atomic_t pause_required = 0;
 volatile sig_atomic_t continue_required = 0;
 volatile sig_atomic_t exit_required = 0;
 
@@ -60,7 +60,7 @@ static void signal_handler(int signum)
   switch (signum)
   {
     case SIGINT:  // Interrupt from keyboard
-      interrupt_required = 1;
+      pause_required = 1;
       break;
 
     case SIGCONT: // Continue if stopped

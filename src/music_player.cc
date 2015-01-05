@@ -15,7 +15,7 @@ extern "C" {
 // use these global variables.  To avoid any other piece piece of code
 // from using it, the declaration is not written on a header file on
 // purpose.
-extern volatile sig_atomic_t interrupt_required;
+extern volatile sig_atomic_t pause_required;
 extern volatile sig_atomic_t continue_required;
 extern volatile sig_atomic_t exit_required;
 
