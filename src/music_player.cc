@@ -518,10 +518,24 @@ void play(unsigned int midi_input_port, unsigned int midi_output_port)
 
   sound_listener.setCallback(callback_fn, &callback_data);
 
+  // This mode is playing from a midi keyboard as input, not a midi
+  // file.  In this mode there is play/pause. It wouldn't make
+  // sense. Therefore the event loop will only look at a signal
+  // requiring to shutdown the program, and will happily ignore any
+  // SIGINT/SIGCONT it might receive.
+
   for (;;)
   {
+    if (exit_required)
+    {
+      return;
+    }
+
     struct tb_event ev;
-    const auto ret_val = tb_poll_event(&ev);
+
+    // use peek_event with a _small_ timeout instead of waiting forever
+    // as we may need to quit if we got a signal requesting so.
+    const auto ret_val = tb_peek_event(&ev, 100 /* timeout in ms */);
 
     switch (ret_val)
     {
