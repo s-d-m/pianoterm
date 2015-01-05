@@ -1,10 +1,12 @@
 #include <iostream>
 #include <string>
+#include <signal.h> // for struct sigaction
 
 #include "midi_reader.hh"
 #include "keyboard_events_extractor.hh"
 #include "utils.hh"
 #include "music_player.hh"
+#include "signals_handler.hh"
 
 struct options
 {
@@ -111,6 +113,9 @@ static void usage(std::ostream& out, const std::string& progname)
 
 int main(int argc, char** argv)
 {
+  struct sigaction sa;
+  set_signal_handler(sa);
+
   const auto opts = get_opts(argc, argv);
 
   const std::string prog_name = argv[0];

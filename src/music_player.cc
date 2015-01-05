@@ -5,8 +5,19 @@ extern "C" {
 #include <sys/time.h> // for gettimofday
 }
 
+#include <signal.h> // for sig_atomic_t type
+
 #include "music_player.hh"
 #include "keyboard_events_extractor.hh"
+
+// Global variables to "share" state between the signal handler and
+// the main event loop.  Only these two pieces should be allowed to
+// use these global variables.  To avoid any other piece piece of code
+// from using it, the declaration is not written on a header file on
+// purpose.
+extern volatile sig_atomic_t interrupt_required;
+extern volatile sig_atomic_t continue_required;
+extern volatile sig_atomic_t exit_required;
 
 static
 void draw_piano_key(int x, int y, int width, int height,  uint16_t color)
