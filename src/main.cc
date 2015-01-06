@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include <signal.h> // for struct sigaction
 
 #include "midi_reader.hh"
 #include "keyboard_events_extractor.hh"
@@ -113,8 +112,7 @@ static void usage(std::ostream& out, const std::string& progname)
 
 int main(int argc, char** argv)
 {
-  struct sigaction sa;
-  set_signal_handler(sa);
+  set_signal_handler();
 
   const auto opts = get_opts(argc, argv);
 

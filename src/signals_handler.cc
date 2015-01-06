@@ -96,8 +96,9 @@ static void signal_handler(int signum)
   #pragma clang diagnostic ignored "-Wdisabled-macro-expansion"
 #endif
 
-void set_signal_handler(struct sigaction& sa)
+void set_signal_handler()
 {
+  struct sigaction sa;
   std::memset(&sa, 0, sizeof(struct sigaction));
   sa.sa_handler = &signal_handler;
 
