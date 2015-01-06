@@ -1,5 +1,6 @@
 #include <signal.h>
 #include <cstring> // for memset
+#include <cerrno>
 #include <stdexcept>
 #include <string>
 
@@ -14,7 +15,7 @@ volatile sig_atomic_t continue_required = 0;
 volatile sig_atomic_t exit_required = 0;
 
 static
-std::string signum_to_str(int signum)
+const char* signum_to_str(int signum)
 {
   switch (signum)
   {
@@ -113,7 +114,9 @@ void set_signal_handler()
   {
     if (sigaction(signum, &sa, nullptr) == -1)
     {
-      throw std::runtime_error("Error while setting the interrupt hangler for signal " + signum_to_str(signum));
+
+      throw std::runtime_error(std::string{"Error while setting the interrupt hangler for signal "} + signum_to_str(signum) +
+			       " (" + std::strerror(errno) + ")");
     }
   }
 
