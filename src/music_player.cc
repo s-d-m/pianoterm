@@ -470,7 +470,7 @@ struct callback_data_t
 };
 
 static
-void callback_fn(double timestamp __attribute__((unused)), std::vector<unsigned char> *message, void* param) {
+void on_midi_input(double timestamp __attribute__((unused)), std::vector<unsigned char> *message, void* param) {
   if (message == nullptr)
   {
     throw std::invalid_argument("Error, invalid input message");
@@ -521,7 +521,7 @@ void play(unsigned int midi_input_port, unsigned int midi_output_port)
 					    .ref_y = ref_y };
 
 
-  sound_listener.setCallback(callback_fn, &callback_data);
+  sound_listener.setCallback(on_midi_input, &callback_data);
 
   // This mode is playing from a midi keyboard as input, not a midi
   // file.  In this mode there is play/pause. It wouldn't make
