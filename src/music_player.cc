@@ -2,9 +2,10 @@
 #include <RtMidi.h>
 #include <stdexcept>
 extern "C" {
-#include <sys/time.h> // for gettimofday
+#include <time.h> // for clock_gettime
 }
-
+#include <cerrno>
+#include <cstring>
 #include <signal.h> // for sig_atomic_t type
 
 #include "music_player.hh"
@@ -396,9 +397,14 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
       const decltype(music[0].time) time_to_wait = (music[i + 1].time - current_event.time) / 1000; // sleep time is in micro second
       decltype(music[0].time) waited_time = 0;
 
-      struct timeval timeval;
-      gettimeofday(&timeval, nullptr);
-      const auto started_time = static_cast<uint64_t>(timeval.tv_sec * 1000000 + timeval.tv_usec);
+      struct timespec timeval;
+      auto status = clock_gettime(CLOCK_MONOTONIC, &timeval);
+      if (status == -1)
+      {
+	std::cerr << std::strerror(errno) << "\n";
+	return;
+      }
+      const auto started_time = static_cast<uint64_t>(timeval.tv_sec * 1000 * 1000 + (timeval.tv_nsec / 1000));
 
       bool is_in_pause = false;
 
@@ -451,8 +457,14 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
 	  is_in_pause = false;
 	}
 
-	gettimeofday(&timeval, nullptr);
-	const auto time_now = static_cast<uint64_t>(timeval.tv_sec * 1000000 + timeval.tv_usec);
+	status = clock_gettime(CLOCK_MONOTONIC, &timeval);
+	if (status == -1)
+	{
+	  std::cerr << std::strerror(errno) << "\n";
+	  return;
+	}
+
+	const auto time_now = static_cast<uint64_t>(timeval.tv_sec * 1000 *1000 + (timeval.tv_nsec / 1000));
 	waited_time = time_now - started_time;
       } while ((is_in_pause) or (waited_time < time_to_wait));
     }
