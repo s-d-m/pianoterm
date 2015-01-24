@@ -19,7 +19,7 @@ Todo: choose a license
 Build dependencies
 ----------------
 
-`Pianoterm` requires a C++11 compiler to build (clang++-3.5 and g++-4.9 are both fines).
+`Pianoterm` requires a C++11 compiler to build (clang++-3.5 and g++-4.9 are both fine).
 It also depends on the following libraries:
 
 - [`libRtMidi`][rtmidi]
