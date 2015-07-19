@@ -6,7 +6,6 @@
 #include <fstream>
 #include "midi_reader.hh"
 #include "keyboard_events_extractor.hh"
-#include "midi_reader.hh"
 
 
 // the followins SCOP_EEXIT magic comes from
