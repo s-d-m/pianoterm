@@ -8,7 +8,7 @@
 #include "keyboard_events_extractor.hh"
 
 
-// the followins SCOP_EEXIT magic comes from
+// the followins SCOPE_EXIT magic comes from
 // http://the-witness.net/news/2012/11/scopeexit-in-c11/
 template <typename F>
 struct ScopeExit {
