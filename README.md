@@ -66,7 +66,7 @@ Then, you can list the midi "ports" using
 
 	./bin/pianoterm --list
 
-This print something like:
+This prints something like:
 
 	5 input ports found:
 	  0 -> Midi Through 14:0
