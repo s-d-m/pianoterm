@@ -58,13 +58,17 @@ This will generate the `pianoterm` binary in `./bin`
 How to use
 ----------
 
-Pianoterm needs a midi sequencer. You can list the midi "ports" using
+Pianoterm needs a midi sequencer. If you decided to use timidity, you will need to run it first using:
+
+	timity -iA &
+
+Then, you can list the midi "ports" using
 
 	./bin/pianoterm --list
 
 This print something like:
 
-	5 ports found:
+	5 input ports found:
 	  0 -> Midi Through 14:0
 	  1 -> TiMidity 128:0
 	  2 -> TiMidity 128:1
@@ -87,22 +91,23 @@ E.g with a [virtual midi keyboard player][vmpk]
 
 This print something like:
 
-	6 ports found:
+	6 output ports found:
 	  0 -> Midi Through 14:0
-	  1 -> TiMidity 128:0
-	  2 -> TiMidity 128:1
-	  3 -> TiMidity 128:2
-	  4 -> TiMidity 128:3
-	  5 -> VMPK Input 130:0
+	  1 -> VMPK Input 129:0
+	  2 -> TiMidity 130:0
+	  3 -> TiMidity 130:1
+	  4 -> TiMidity 130:2
+	  5 -> TiMidity 130:3
+
+	2 input ports found:
+	  0 -> Midi Through 14:0
+	  1 -> VMPK Output 128:0
 
 Now run
 
-	./bin/pianoterm --input-port 1 --output-port 1
+	./bin/pianoterm --input-port 2 --output-port 1
 
-Unfortunately `pianoterm` currently doesn't differentiate between
-inputs and outputs in the listing. Therefore it shows the "VMPK Input
-130:0" as port #5 instead of input port #1. You might need to try
-a few value before getting the right one.
+This will use the virtual keyboark (VMPK) as input, and will use `TiMidity 130:0` as the midi sequencer.
 
 Other files you may want to read
 --------------------------------
