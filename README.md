@@ -68,7 +68,7 @@ Then, you can list the midi "ports" using
 
 This prints something like:
 
-	5 input ports found:
+	5 output ports found:
 	  0 -> Midi Through 14:0
 	  1 -> TiMidity 128:0
 	  2 -> TiMidity 128:1
@@ -105,7 +105,7 @@ This print something like:
 
 Now run
 
-	./bin/pianoterm --input-port 2 --output-port 1
+	./bin/pianoterm --input-port 1 --output-port 2
 
 This will use the virtual keyboark (VMPK) as input, and will use `TiMidity 130:0` as the midi sequencer.
 
