@@ -324,25 +324,25 @@ group_events_by_time(const std::vector<struct midi_event>& midi_events,
   return res;
 }
 
-
-void list_midi_ports(std::ostream& out)
+template <typename T>
+static
+void list_midi_ports(std::ostream& out, T& player, const char* direction)
 {
-  RtMidiOut player;
 
   const auto nb_ports = player.getPortCount();
   if (nb_ports == 0)
   {
-    out << "Sorry: no midi port found\n";
+    out << "Sorry: no " << direction << " midi port found\n";
   }
   else
   {
     if (nb_ports == 1)
     {
-      out << "1 port found:\n";
+      out << "1 " << direction << " port found:\n";
     }
     else
     {
-      out << nb_ports << " ports found:\n";
+      out << nb_ports << " " << direction << " ports found:\n";
     }
 
     for (auto i = decltype(nb_ports){0}; i < nb_ports; ++i)
@@ -350,6 +350,18 @@ void list_midi_ports(std::ostream& out)
       out << "  " << i << " -> " << player.getPortName(i) << "\n";
     }
   }
+
+}
+
+void list_midi_ports(std::ostream& out)
+{
+  RtMidiOut out_player;
+  list_midi_ports(out, out_player, "output");
+
+  out << "\n";
+
+  RtMidiIn in_player;
+  list_midi_ports(out, in_player, "input");
 
 }
 
