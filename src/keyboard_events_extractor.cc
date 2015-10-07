@@ -73,6 +73,31 @@ void separate_release_pressed_events(std::vector<struct key_event>& key_events)
   	    return (a.data.ev_type == key_data::type::pressed) and (a.data.pitch == pitch) and (a.time == time);
   	  }))
       {
+	// technically nothing prevents a midi file from having an event appearing twice
+	// at the same time. While this should result in nothing special, it messes up
+	// with the separate pressed/released event. Indeed, if two release event appear
+	// at the exact same time, and the release event should be advanced, only one of
+	// them will. Therefore, at the end of the processing, there will still be a
+	// pressed/release at the same time.
+	//
+	// One can argue that this can't happen with proper midi files. Well, truth is
+	// that some midi files contain music played by several instruments at the same
+	// time. Since pianoterm doesn't keep track of the instrument playing a note,
+	// and doesn't filter out any non-piano instrument, it can actually happen with
+	// absolutely normal files.  Pianoterm will plays the note for all instruments
+	// with a piano. Therefore, it is enough that two instruments stops playing a
+	// note at the same time to trigger this problem.
+	//
+	// One solution would be to remove duplicated events. However this solution
+	// would bring other problems, like getting a released (resp. pressed) event
+	// without a matching pressed (resp. released).
+	//
+	// Another one would be to advance all identic released events. This solution
+	// could also bring other problems/
+	//
+	// Due to the goals of pianoterm, if the problem of duplicate events appears,
+	// the file will simply be rejected instead of "automagically fixed".
+
   	throw std::invalid_argument("Error: a key is said to be pressed and released at the same time");
       }
     }
