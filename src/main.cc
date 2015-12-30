@@ -100,12 +100,12 @@ struct options get_opts(const int argc, const char * const * const argv)
 static void usage(std::ostream& out, const std::string& progname)
 {
   out << "Usage: " << progname << " [Options] [File]\n"
-      << "\n"
-      << "Options:\n"
-      << "  -h, --help			print this help\n"
-      << "  -l, --list			list the midi output ports available for use\n"
-      << "  -o, --output-port <NUM>	the output midi port to use\n"
-      << "  -i, --input-port <NUM>	the input midi to use if no file is provided\n";
+      "\n"
+      "Options:\n"
+      "  -h, --help			print this help\n"
+      "  -l, --list			list the midi output ports available for use\n"
+      "  -o, --output-port <NUM>	the output midi port to use\n"
+      "  -i, --input-port <NUM>	the input midi to use if no file is provided\n";
 }
 
 
