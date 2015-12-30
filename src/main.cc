@@ -32,7 +32,7 @@ struct options
 };
 
 static
-struct options get_opts(int argc, char** argv)
+struct options get_opts(const int argc, const char * const * const argv)
 {
   struct options res;
 
@@ -110,7 +110,7 @@ static void usage(std::ostream& out, const std::string& progname)
 
 
 
-int main(int argc, char** argv)
+int main(const int argc, const char* const * const argv)
 {
   set_signal_handler();
 
