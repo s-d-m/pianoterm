@@ -138,7 +138,8 @@ int main(int argc, char** argv)
 
   if (not opts.was_output_port_set)
   {
-    std::cerr << "Error: the midi output port must be set from command line\n";
+    std::cerr << "Error: the midi output port must be set from command line\n\n";
+    usage(std::cerr, prog_name);
     return 2;
   }
 
@@ -150,7 +151,8 @@ int main(int argc, char** argv)
 
   if ((opts.filename != "") and (opts.was_input_port_set))
   {
-    std::cerr << "Error: can't use a midi file and a midi input port simultaneously\n";
+    std::cerr << "Error: can't use a midi file and a midi input port simultaneously\n\n";
+    usage(std::cerr, prog_name);
     return 2;
   }
 
