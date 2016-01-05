@@ -529,7 +529,7 @@ void play(unsigned int midi_input_port, unsigned int midi_output_port)
 
   struct callback_data_t callback_data =  { .keyboard = keyboard,
 					    .sound_player = sound_player,
-					    .ref_x = ref_y,
+					    .ref_x = ref_x,
 					    .ref_y = ref_y };
 
 
