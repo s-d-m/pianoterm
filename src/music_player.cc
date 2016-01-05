@@ -536,7 +536,7 @@ void play(unsigned int midi_input_port, unsigned int midi_output_port)
   sound_listener.setCallback(on_midi_input, &callback_data);
 
   // This mode is playing from a midi keyboard as input, not a midi
-  // file.  In this mode there is play/pause. It wouldn't make
+  // file.  In this mode there is no play/pause. It wouldn't make
   // sense. Therefore the event loop will only look at a signal
   // requiring to shutdown the program, and will happily ignore any
   // SIGINT/SIGCONT it might receive.
