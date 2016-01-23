@@ -5,9 +5,7 @@ Pianoterm, as the name suggests, displays a piano in your terminal.
 It supports playing midi files, and waiting for events from a midi input port.
 Have a look at the following video to get a preview of what it does.
 
-[link-to-video][1]
-
-[1]: ./misc/demo.mp4
+![video demo of pianoterm] (./misc/demo.gif?raw=true)
 
 The video has no embedded sound in it, but the real program plays it.
 
