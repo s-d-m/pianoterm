@@ -1,4 +1,4 @@
-#include <RtMidi.h>
+#include <rtmidi/RtMidi.h>
 #include <algorithm>
 #include <stdexcept>
 #include <string>

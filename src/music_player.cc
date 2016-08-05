@@ -1,5 +1,5 @@
 #include <termbox.h>
-#include <RtMidi.h>
+#include <rtmidi/RtMidi.h>
 #include <stdexcept>
 extern "C" {
 #include <time.h> // for clock_gettime
