@@ -402,7 +402,7 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
 	return;
       }
 
-      const std::chrono::system_clock::time_point started_time = std::chrono::system_clock::now();
+      const std::chrono::steady_clock::time_point started_time = std::chrono::steady_clock::now();
 
       bool is_in_pause = false;
 
@@ -462,7 +462,7 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
 	  return;
 	}
 
-	const std::chrono::system_clock::time_point time_now = std::chrono::system_clock::now();
+	const std::chrono::steady_clock::time_point time_now = std::chrono::steady_clock::now();
 	waited_time = time_now - started_time;
       } while ((is_in_pause) or (waited_time < time_to_wait));
     }
