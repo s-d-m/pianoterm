@@ -4,10 +4,11 @@
 #include <vector>
 #include <string>
 #include <limits>
+#include <chrono>
 
 struct midi_event
 {
-    uint64_t		 time; // nanosec
+    std::chrono::nanoseconds time;
     std::vector<uint8_t> data;
 
     midi_event()

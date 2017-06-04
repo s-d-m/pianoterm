@@ -1,5 +1,6 @@
 #include <stdexcept>
 #include <algorithm>
+#include <chrono>
 #include "keyboard_events_extractor.hh"
 #include "utils.hh"
 
@@ -50,10 +51,11 @@ void separate_release_pressed_events(std::vector<struct key_event>& key_events)
 
 	// compute the shortening time
 	const auto duration = release_pos->time - note_start_pos->time;
-	const auto max_shortening_time = decltype(duration){75000000}; // nanoseconds
+	constexpr const std::chrono::nanoseconds max_shortening_time {75000000};
 
 	// shorten the duration by one fourth of its time, in the worst case
-	const auto shortening_time = std::min(max_shortening_time, duration / 4);
+	const std::chrono::nanoseconds shortening_time { std::min(static_cast<decltype(duration)>(max_shortening_time.count()),
+								  duration / 4) } ;
 	release_pos->time -= shortening_time;
 
       }

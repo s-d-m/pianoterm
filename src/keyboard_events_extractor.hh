@@ -2,6 +2,7 @@
 #define KEYBOARD_EVENTS_EXTRACTOR_HH_
 
 #include <vector>
+#include <chrono>
 #include "midi_reader.hh"
 
 struct key_data
@@ -26,7 +27,7 @@ struct key_data
 
 struct key_event
 {
-    uint64_t time; // the time the event occurs during the sond
+    std::chrono::nanoseconds time; // the time the event occurs during the song
     key_data data;
 
     key_event(const key_event& other) = default;

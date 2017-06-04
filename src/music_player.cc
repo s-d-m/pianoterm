@@ -1,13 +1,10 @@
 #include <termbox.h>
 #include <rtmidi/RtMidi.h>
 #include <stdexcept>
-extern "C" {
-#include <time.h> // for clock_gettime
-}
 #include <cerrno>
 #include <cstring>
 #include <signal.h> // for sig_atomic_t type
-
+#include <chrono>
 #include "music_player.hh"
 #include "keyboard_events_extractor.hh"
 
@@ -394,8 +391,8 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
     if (i != nb_events - 1)
     {
       // sleep until next music event or a key (== space or ctrl+q) is pressed
-      const decltype(music[0].time) time_to_wait = (music[i + 1].time - current_event.time) / 1000; // sleep time is in micro second
-      decltype(music[0].time) waited_time = 0;
+      const auto time_to_wait = (music[i + 1].time - current_event.time); // sleep time is in nanoseconds
+      std::chrono::nanoseconds waited_time { 0 };
 
       struct timespec timeval;
       auto status = clock_gettime(CLOCK_MONOTONIC, &timeval);
@@ -404,7 +401,8 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
 	std::cerr << std::strerror(errno) << "\n";
 	return;
       }
-      const auto started_time = static_cast<uint64_t>(timeval.tv_sec * 1000 * 1000 + (timeval.tv_nsec / 1000));
+
+      const std::chrono::system_clock::time_point started_time = std::chrono::system_clock::now();
 
       bool is_in_pause = false;
 
@@ -412,9 +410,9 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
       {
 	struct tb_event tmp;
 	const auto timeout = (time_to_wait > waited_time)
-			     ? std::min(100, static_cast<int>((time_to_wait - waited_time) / 1000))
-	                     : 100;
-	auto ret_val = tb_peek_event(&tmp, timeout); // timeout in ms
+	  ? std::min(static_cast<std::chrono::milliseconds::rep>(100), std::chrono::duration_cast<std::chrono::milliseconds>(time_to_wait - waited_time).count())
+	  : 100;
+	auto ret_val = tb_peek_event(&tmp, static_cast<int>(timeout)); // timeout in ms
 	switch (ret_val)
 	{
 	  case TB_EVENT_KEY:
@@ -464,7 +462,7 @@ void play(const std::vector<struct music_event>& music, unsigned int midi_output
 	  return;
 	}
 
-	const auto time_now = static_cast<uint64_t>(timeval.tv_sec * 1000 *1000 + (timeval.tv_nsec / 1000));
+	const std::chrono::system_clock::time_point time_now = std::chrono::system_clock::now();
 	waited_time = time_now - started_time;
       } while ((is_in_pause) or (waited_time < time_to_wait));
     }

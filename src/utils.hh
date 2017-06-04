@@ -4,6 +4,7 @@
 #include <vector>
 #include <limits>
 #include <fstream>
+#include <chrono>
 #include "midi_reader.hh"
 #include "keyboard_events_extractor.hh"
 
@@ -78,7 +79,7 @@ using midi_message = std::vector<uint8_t>;
 
 struct music_event
 {
-    uint64_t time; // occuring time
+    std::chrono::nanoseconds time; // occuring time
     std::vector<midi_message> midi_messages;
     std::vector<struct key_data> key_events;
 

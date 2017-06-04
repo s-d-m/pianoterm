@@ -165,7 +165,15 @@ static uint16_t get_tickdiv(std::fstream& file, /* out param */ enum tempo_style
 static struct midi_event get_event(std::fstream& file, uint8_t last_status_byte)
 {
   struct midi_event res;
-  res.time = get_relative_time(file);
+  // get_relative_time returns MIDI tics. These are the number of tics that occured since the former event
+  // if the song uses the metrical timing tempo_style, or since the beginning of the song if it used the timecode
+  // tempo_style. These are *NOT* in a dimension of seconds. Therefore assigning them to res.time which is of type
+  // nanoseconds is wrong here. instead, there should which denote a midi tics that should be used here.
+  // In order not to create too many types, and avoid some memory and copies overhead, the .time field is used here
+  // to stop the midi tics.
+  // There will be a step later on that will transfer these midi tics (wrongly stored as nanoseconds here), into
+  // the real naonseconds value, based on the tempo style. See function set_real_timings.
+  res.time = std::chrono::nanoseconds{ get_relative_time(file) };
 
   // an event can be of three form: Control event, META event, or System
   // Exclusive event. See http://www.sonicspot.com/guide/midifiles.html
@@ -256,14 +264,16 @@ static void get_track_events(std::vector<struct midi_event>& res,
   // reset the current time for the beginning of the track
   bool end_of_track_found = false;
   uint8_t last_status_byte = 0x00; // 0 is an invalid status byte (i.e. type of midi event)
-  uint64_t this_time = 0;
+  std::chrono::nanoseconds::rep this_time = 0;
 
   do
   {
     res.emplace_back( get_event(file, last_status_byte) );
     auto& event = res.back();
-    event.time += this_time;
-    this_time = event.time;
+    // This functions handles midi tics which are not in a unit of seconds. However, let's write it in the time field
+    // for now, and fix it to proper nanoseconds later.
+    event.time += std::chrono::nanoseconds{ this_time };
+    this_time = event.time.count();
 
     last_status_byte = event.data[0];
     end_of_track_found = (event.data[0] == 0xff) and (event.data[1] == 0x2f);
@@ -305,14 +315,14 @@ static void set_real_timings(std::vector<struct midi_event>& events,
     {
       for (auto& ev : events)
       {
-	ev.time = ev.time * tickdiv * 1000 * 1000; // nanosecond
+	ev.time = std::chrono::nanoseconds{ ev.time.count() * tickdiv * 1000 * 1000 }; // nanosecond
       }
       break;
     }
     case metrical_timing:
     {
       uint64_t ref_ticks = 0;
-      uint64_t ref_time = 0;
+      std::chrono::nanoseconds ref_time { 0 };
 
       // default tempo is 120 beats per minutes
       // 1 minute -> 60 000 000 microseconds
@@ -321,9 +331,9 @@ static void set_real_timings(std::vector<struct midi_event>& events,
 
       for (auto& ev : events)
       {
-	const auto last_ticks = ev.time;
-	const auto delta_ticks = last_ticks - ref_ticks;
-	ev.time = ref_time + (delta_ticks * us_per_quarter_note * 1000 / tickdiv);
+	const auto last_ticks = ev.time.count();
+	const auto delta_ticks = static_cast<decltype(ref_ticks)>(last_ticks) - ref_ticks;
+	ev.time = ref_time + std::chrono::nanoseconds{ (delta_ticks * us_per_quarter_note * 1000) / tickdiv };
 
 	if ((ev.data[0] == 0xff) and (ev.data[1] == 0x51))
 	{
@@ -333,7 +343,7 @@ static void set_real_timings(std::vector<struct midi_event>& events,
 	    throw std::invalid_argument("Error: tempo event has an invalid size");
 	  }
 
-	  ref_ticks = last_ticks;
+	  ref_ticks = static_cast<decltype(ref_ticks)>(last_ticks);
 	  ref_time = ev.time;
 
 	  us_per_quarter_note = static_cast<decltype(us_per_quarter_note)>(
