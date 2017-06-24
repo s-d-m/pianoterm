@@ -51,6 +51,7 @@ else
   CXX_WARN_FLAGS_FOR_GCC_4.9 := \
 	-Werror \
 	-Wno-pedantic \
+	-Wpointer-arith \
 	-Wall \
 	-Wextra \
 	-Wformat=2 \
