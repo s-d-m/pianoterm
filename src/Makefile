@@ -36,7 +36,10 @@ ifeq ($(findstring clang,$(CXX)), clang)
 	-fstack-protector-all \
 	--param ssp-buffer-size=4 \
 	-D_FORTIFY_SOURCE=2 \
-	-fPIC
+	-fPIC \
+	-fno-omit-frame-pointer
+
+# -fno-omit-frame-pointer to help the address sanitiser
 
   LDFLAGS = \
 	-pie \
@@ -47,6 +50,9 @@ ifeq ($(findstring clang,$(CXX)), clang)
 	-z nodump
 
 else
+#https://developers.redhat.com/blog/2018/03/21/compiler-and-linker-flags-gcc/
+#https://developers.redhat.com/blog/2018/03/26/gnu-toolchain-update-2018/
+
 # for g++ 4.9
   CXX_WARN_FLAGS_FOR_GCC_4.9 := \
 	-Werror \
@@ -162,7 +168,9 @@ else
   SANITIZERS = \
 	-fsanitize=address \
 	-fsanitize=undefined \
-	-fbounds-check \
+	-fno-sanitize-recover=all \
+	-fsanitize=vptr
+
 # -fcheck-pointer-bounds -mmpx # pointer checker is not supported with address sanitiser
 # -fsanitize=thread #is incompatible with sanitize address
 # -fsanitize=leak # leak sanitizer can't be used if either address or thread sanitizer is used
@@ -171,7 +179,20 @@ else
 	-fstack-protector-all \
 	--param ssp-buffer-size=4 \
 	-D_FORTIFY_SOURCE=2 \
-	-fPIC
+	-fPIC \
+	-fbounds-check \
+	-fstack-check \
+	-fchkp-first-field-has-own-bounds \
+	-fchkp-flexible-struct-trailing-arrays \
+	-fchkp-narrow-to-innermost-array \
+	-fchkp-optimize \
+	-fchkp-use-wrappers \
+#	-fvtable-verify=preinit \
+#  \
+	# -D_GLIBCXX_DEBUG \
+	# -D_GLIBCXX_DEBUG_PEDANTIC
+
+# can't use these debugged GLIBCXX version with external libraries
 
   LDFLAGS = \
 	-pie \
@@ -213,7 +234,7 @@ all: ${TARGET}
 
 ${TARGET}: ${OBJS}
 	-mkdir -p ${TARGET_DIR}
-	${CXX} ${CXXFLAGS} -o ${TARGET} ${OBJS} ${LIBS}
+	${CXX} ${LDFLAGS} ${CXXFLAGS} -o ${TARGET} ${OBJS} ${LIBS}
 
 %.o: %.cc
 	${CXX} ${CXXFLAGS} ${INCLUDES} -MD -c -o "$@" "$<"
