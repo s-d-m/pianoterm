@@ -17,7 +17,7 @@ static T read_big_endian(std::fstream& file)
     res = static_cast<decltype(res)>( (res << 8) | tmp);
   }
   return res;
-};
+}
 
 static inline uint16_t read_big_endian16(std::fstream& file)
 {

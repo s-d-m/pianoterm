@@ -24,7 +24,7 @@ struct ScopeExit {
 template <typename F>
 inline ScopeExit<F> MakeScopeExit(F f) {
     return ScopeExit<F>(f);
-};
+}
 
 #define DO_STRING_JOIN2(arg1, arg2) arg1 ## arg2
 #define STRING_JOIN2(arg1, arg2) DO_STRING_JOIN2(arg1, arg2)
